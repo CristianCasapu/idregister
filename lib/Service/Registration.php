@@ -57,7 +57,7 @@ final class Registration
      *
      * @throws \InvalidArgumentException on anything the visitor can fix
      */
-    public function start(array $card, string $email, string $phone, string $password, string $language): array
+    public function start(array $card, string $email, string $phone, string $language): array
     {
         if (!$this->settings->get('registrationOpen')) {
             throw new \InvalidArgumentException($this->l->t('Registration is currently closed.'));
@@ -79,11 +79,6 @@ final class Registration
         if ('' === $phone && $phoneRequired) {
             throw new \InvalidArgumentException($this->l->t('This phone number is not valid.'));
         }
-        $minPassword = max(8, (int) $this->settings->get('minPasswordLength'));
-        if (mb_strlen($password) < $minPassword) {
-            throw new \InvalidArgumentException($this->l->n('The password must have at least %n character.', 'The password must have at least %n characters.', $minPassword));
-        }
-
         // conditions the administrator set
         $isIdCard = DocumentReader::TYPE_ID_CARD === ($card['type'] ?? DocumentReader::TYPE_ID_CARD);
         if ($isIdCard && $this->settings->get('requireValidCnp') && !IdCardParser::isValidCnp($card['cnp'])) {
@@ -117,23 +112,12 @@ final class Registration
             throw new \InvalidArgumentException($this->l->t('An account was already created with this identity card.'));
         }
 
-        $uid = $this->uniqueUid($given, $surname);
+        // No account is created yet: the visitor first has to prove the e-mail address is theirs,
+        // and only then do they choose a password. Nothing half-made is left in the user list.
         $now = $this->time->getTime();
 
-        $user = $this->userManager->createUser($uid, $password);
-        if (!$user instanceof IUser) {
-            throw new \RuntimeException('The account could not be created');
-        }
-        $user->setEnabled(false);
-        $user->setDisplayName(IdCardParser::titleCase($given).' '.IdCardParser::titleCase($surname));
-        $user->setSystemEMailAddress($email);
-        $this->setPhone($user, $phone);
-        if ('' !== (string) $this->settings->get('quota')) {
-            $user->setQuota((string) $this->settings->get('quota'));
-        }
-
         $pending = new PendingRegistration();
-        $pending->setUid($uid);
+        $pending->setUid('');
         $pending->setSurname(IdCardParser::titleCase($surname));
         $pending->setGivenNames(IdCardParser::titleCase($given));
         $pending->setEmail($email);
@@ -157,17 +141,17 @@ final class Registration
             // no confirmation e-mail means no way in: undo everything instead of leaving a dead account
             $this->logger->error('idregister: the confirmation e-mail could not be sent to '.$email, ['exception' => $e]);
             $this->mapper->delete($pending);
-            $user->delete();
 
             throw new \InvalidArgumentException($this->l->t('The confirmation e-mail could not be sent. Please check the address, or try again later.'));
         }
-        $this->logger->info('idregister: registration started for '.$uid.' ('.$email.')'.($pending->getNeedsReview() ? ' — the selfie needs a look' : ''));
+        $this->logger->info('idregister: registration started for '.$email.($pending->getNeedsReview() ? ' — the selfie needs a look' : ''));
 
-        return ['token' => $pending->getToken(), 'email' => $email, 'uid' => $uid];
+        return ['token' => $pending->getToken(), 'email' => $email];
     }
 
     /**
-     * Confirm with the six digit code.
+     * Confirm with the six digit code. The account is created later, when the visitor
+     * has chosen a password.
      *
      * @return array{status:string, uid:string, name:string}
      *
@@ -227,7 +211,7 @@ final class Registration
     public function remove(int $id, bool $deleteUser = true): void
     {
         $pending = $this->mapper->find($id);
-        if ($deleteUser && PendingRegistration::STATUS_ACTIVE !== $pending->getStatus()) {
+        if ($deleteUser && PendingRegistration::STATUS_ACTIVE !== $pending->getStatus() && '' !== $pending->getUid()) {
             $user = $this->userManager->get($pending->getUid());
             $user?->delete();
         }
@@ -269,27 +253,69 @@ final class Registration
         }
     }
 
-    /** @return array{status:string, uid:string, name:string} */
+    /** The e-mail address is proven; the account itself waits for a password. */
     private function activate(PendingRegistration $pending): array
     {
-        $user = $this->userManager->get($pending->getUid());
-        if (null === $user) {
-            throw new \InvalidArgumentException($this->l->t('This registration no longer exists.'));
-        }
-        if (PendingRegistration::STATUS_PENDING !== $pending->getStatus()) {
-            return ['status' => $pending->getStatus(), 'uid' => $pending->getUid(), 'name' => $pending->getFullName()];
+        if (PendingRegistration::STATUS_PENDING === $pending->getStatus()) {
+            $pending->setStatus(PendingRegistration::STATUS_VERIFIED);
+            $this->mapper->update($pending);
+            $this->logger->info('idregister: '.$pending->getEmail().' confirmed their e-mail address');
         }
 
+        return ['status' => $pending->getStatus(), 'uid' => $pending->getUid(), 'name' => $pending->getFullName()];
+    }
+
+    /**
+     * Last step: the visitor picks a password and the account is created.
+     *
+     * @return array{status:string, uid:string, name:string}
+     *
+     * @throws \InvalidArgumentException
+     */
+    public function finish(string $token, string $password): array
+    {
+        $pending = $this->findPending($token);
+        if (PendingRegistration::STATUS_PENDING === $pending->getStatus()) {
+            throw new \InvalidArgumentException($this->l->t('Please confirm your e-mail address first.'));
+        }
+        if (PendingRegistration::STATUS_VERIFIED !== $pending->getStatus()) {
+            // already finished; say so instead of making a second account
+            return ['status' => $pending->getStatus(), 'uid' => $pending->getUid(), 'name' => $pending->getFullName()];
+        }
+        $minPassword = max(8, (int) $this->settings->get('minPasswordLength'));
+        if (mb_strlen($password) < $minPassword) {
+            throw new \InvalidArgumentException($this->l->n('The password must have at least %n character.', 'The password must have at least %n characters.', $minPassword));
+        }
+
+        $uid = $this->uniqueUid($pending->getGivenNames(), $pending->getSurname());
+
+        try {
+            $user = $this->userManager->createUser($uid, $password);
+        } catch (\Throwable $e) {
+            // the password policy app refuses weak passwords with its own message
+            throw new \InvalidArgumentException($e->getMessage() ?: $this->l->t('This password cannot be used.'));
+        }
+        if (!$user instanceof IUser) {
+            throw new \RuntimeException('The account could not be created');
+        }
+        $user->setDisplayName($pending->getFullName());
+        $user->setSystemEMailAddress($pending->getEmail());
+        $this->setPhone($user, $pending->getPhone());
+        if ('' !== (string) $this->settings->get('quota')) {
+            $user->setQuota((string) $this->settings->get('quota'));
+        }
+
+        $pending->setUid($uid);
         // from now on the name, the e-mail address and the phone number are fixed
         $this->lock($pending);
 
         if ($this->settings->get('requireApproval') || $pending->getNeedsReview()) {
+            $user->setEnabled(false);
             $pending->setStatus(PendingRegistration::STATUS_AWAITING_APPROVAL);
             $this->mapper->update($pending);
             $this->notifyAdmins($pending);
             $this->mailAdmins($pending, true);
         } else {
-            $user->setEnabled(true);
             foreach ($this->settings->groups() as $group) {
                 if ($this->groupManager->groupExists($group)) {
                     $this->groupManager->get($group)?->addUser($user);
@@ -299,9 +325,9 @@ final class Registration
             $this->mapper->update($pending);
             $this->mailAdmins($pending, false);
         }
-        $this->logger->info('idregister: '.$pending->getUid().' confirmed their e-mail address ('.$pending->getStatus().')');
+        $this->logger->info('idregister: account '.$uid.' created ('.$pending->getStatus().')');
 
-        return ['status' => $pending->getStatus(), 'uid' => $pending->getUid(), 'name' => $pending->getFullName()];
+        return ['status' => $pending->getStatus(), 'uid' => $uid, 'name' => $pending->getFullName()];
     }
 
     private function findPending(string $token): PendingRegistration
@@ -311,7 +337,8 @@ final class Registration
         } catch (DoesNotExistException $e) {
             throw new \InvalidArgumentException($this->l->t('This registration no longer exists.'));
         }
-        if (PendingRegistration::STATUS_PENDING === $pending->getStatus() && $pending->getExpiresAt() < $this->time->getTime()) {
+        if (\in_array($pending->getStatus(), [PendingRegistration::STATUS_PENDING, PendingRegistration::STATUS_VERIFIED], true)
+            && $pending->getExpiresAt() < $this->time->getTime()) {
             throw new \InvalidArgumentException($this->l->t('This registration has expired. Please start again.'));
         }
 

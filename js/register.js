@@ -28,6 +28,7 @@
 	var handoff = initial('handoff', '');
 
 	var state = { file: null, selfie: null, card: null, scanId: '', token: '', language: (document.documentElement.lang || 'en') };
+	var passwordOk = false;
 
 	function url(path) {
 		return (typeof OC !== 'undefined' && OC.generateUrl) ? OC.generateUrl('/apps/idregister' + path) : '/index.php/apps/idregister' + path;
@@ -42,24 +43,36 @@
 		box.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
 	}
 
+	/**
+	 * The spinner is shown only while a request of ours is actually running: it is a counter,
+	 * so it can never be left turning after an answer came back.
+	 */
+	var inFlight = 0;
 	function busy(on, what) {
-		$('idreg-spinner').hidden = !on;
+		inFlight += on ? 1 : -1;
+		if (inFlight < 0) { inFlight = 0; }
 		if (on && what) { $('idreg-spinner-text').textContent = what; }
-		Array.prototype.forEach.call(root.querySelectorAll('button'), function (b) { b.disabled = on; });
-		if (!on) {
+		$('idreg-spinner').hidden = inFlight === 0;
+		Array.prototype.forEach.call(root.querySelectorAll('button'), function (b) { b.disabled = inFlight > 0; });
+		if (inFlight === 0) {
 			$('idreg-scan').disabled = !state.file;
 			$('idreg-check-selfie').disabled = !state.selfie;
+			$('idreg-finish').disabled = !passwordOk;
 		}
 	}
 
+	/** One step at a time; the others are removed from the page, not just hidden. */
+	var STEPS = 6;
 	function step(n) {
 		Array.prototype.forEach.call(root.querySelectorAll('.idreg-step'), function (s) {
 			s.hidden = Number(s.dataset.step) !== n;
 		});
+		var shown = Math.min(Math.max(n, 1), STEPS);
 		Array.prototype.forEach.call(root.querySelectorAll('.dot'), function (d) {
-			d.classList.toggle('on', Number(d.dataset.dot) <= Math.min(n, 5));
+			d.classList.toggle('on', Number(d.dataset.dot) <= shown);
 		});
-		root.querySelector('.idreg-steps').hidden = n === 0;
+		root.querySelector('.idreg-stepline').hidden = n === 0 || n > STEPS;
+		$('idreg-stepcount').textContent = t('Step {n} of {total}', { n: shown, total: STEPS });
 		message('');
 		window.scrollTo({ top: 0, behavior: 'smooth' });
 	}
@@ -236,19 +249,16 @@
 	$('idreg-submit').addEventListener('click', function () {
 		var email = $('idreg-email').value.trim();
 		var phone = $('idreg-phone').value.trim();
-		var password = $('idreg-password').value;
 		if (!email || email.indexOf('@') < 1) { message(t('This e-mail address is not valid.'), 'error'); return; }
 		if ((conditions.requirePhone || phone) && phone.replace(/\D/g, '').length < 9) { message(t('This phone number is not valid.'), 'error'); return; }
-		if (password.length < conditions.minPasswordLength) { message(t('The password is too short.'), 'error'); return; }
 		if (!$('idreg-terms').checked) { message(t('Please accept how your data is used.'), 'error'); return; }
 
-		busy(true, t('Creating the account …'));
+		busy(true, t('Sending the code …'));
 		post('/api/register', {
 			scanId: state.scanId,
 			handoff: handoff,
 			email: email,
 			phone: phone,
-			password: password,
 			language: state.language,
 			terms: true,
 		}).then(function (data) {
@@ -267,8 +277,29 @@
 	$('idreg-verify').addEventListener('click', function () {
 		var code = $('idreg-code').value.trim();
 		if (code.length < 6) { message(t('This code is not correct.'), 'error'); return; }
-		busy(true);
-		post('/api/verify', { token: state.token, code: code, handoff: handoff }).then(function (data) {
+		busy(true, t('Checking the code …'));
+		post('/api/verify', { token: state.token, code: code }).then(function (data) {
+			busy(false);
+			if (!data.ok) { message(data.message, 'error'); return; }
+			step(6);
+		}).catch(function () {
+			busy(false);
+			message(t('Something went wrong. Please try again.'), 'error');
+		});
+	});
+
+	/* ---- step 6: the password, and only now is the account created ---- */
+	var checkPassword = window.idregPassword.attach({
+		input: 'idreg-password', repeat: 'idreg-password2', bar: 'idreg-meter-bar',
+		hint: 'idreg-password-hint', rules: 'idreg-rules', eye: 'idreg-eye',
+		minLength: conditions.minPasswordLength,
+		onChange: function (ok) { passwordOk = ok; $('idreg-finish').disabled = !ok || inFlight > 0; },
+	});
+
+	$('idreg-finish').addEventListener('click', function () {
+		if (!checkPassword()) { return; }
+		busy(true, t('Creating the account …'));
+		post('/api/finish', { token: state.token, password: $('idreg-password').value, handoff: handoff }).then(function (data) {
 			busy(false);
 			if (!data.ok) { message(data.message, 'error'); return; }
 			$('idreg-done-text').textContent = data.status === 'awaiting_approval'
@@ -276,7 +307,7 @@
 				: t('Your account is ready. Your user name is {uid}.', { uid: data.uid });
 			$('idreg-login').href = loginUrl;
 			$('idreg-login').hidden = data.status === 'awaiting_approval';
-			step(6);
+			step(7);
 		}).catch(function () {
 			busy(false);
 			message(t('Something went wrong. Please try again.'), 'error');
@@ -301,7 +332,6 @@
 
 	/* ---- the form follows what the administrator asked for ---- */
 	$('idreg-password').setAttribute('minlength', String(conditions.minPasswordLength));
-	$('idreg-password-hint').textContent = t('At least {n} characters.', { n: conditions.minPasswordLength });
 	if (!conditions.requirePhone) {
 		$('idreg-phone').required = false;
 		$('idreg-phone').previousElementSibling.textContent = t('Phone number (optional)');

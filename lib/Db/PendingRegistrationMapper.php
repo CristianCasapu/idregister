@@ -92,7 +92,10 @@ class PendingRegistrationMapper extends QBMapper
     {
         $query = $this->db->getQueryBuilder();
         $query->select('*')->from(self::TABLE)
-            ->where($query->expr()->eq('status', $query->createNamedParameter(PendingRegistration::STATUS_PENDING)))
+            ->where($query->expr()->in('status', $query->createNamedParameter(
+                [PendingRegistration::STATUS_PENDING, PendingRegistration::STATUS_VERIFIED],
+                IQueryBuilder::PARAM_STR_ARRAY,
+            )))
             ->andWhere($query->expr()->lt('expires_at', $query->createNamedParameter($now, IQueryBuilder::PARAM_INT)))
         ;
 

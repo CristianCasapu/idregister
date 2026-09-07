@@ -258,3 +258,95 @@
 	object-fit: contain;
 	background: #000;
 }
+
+/* wizard header */
+.idreg-stepline {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 10px;
+	margin-bottom: 16px;
+}
+
+.idreg-stepcount {
+	color: var(--color-text-maxcontrast, #767676);
+	font-size: 0.85rem;
+	white-space: nowrap;
+}
+
+/* password strength */
+.idreg-password-wrap {
+	position: relative;
+	display: flex;
+	align-items: center;
+}
+
+.idreg-password-wrap input { padding-right: 44px; }
+
+.idreg-eye {
+	position: absolute;
+	right: 6px;
+	border: none;
+	background: transparent;
+	font-size: 18px;
+	line-height: 1;
+	padding: 6px;
+	cursor: pointer;
+	opacity: 0.55;
+}
+
+.idreg-eye.on,
+.idreg-eye:hover { opacity: 1; }
+
+.idreg-meter {
+	height: 6px;
+	border-radius: 3px;
+	background: var(--color-background-dark, #ededed);
+	overflow: hidden;
+	margin: 8px 0 4px;
+}
+
+.idreg-meter span {
+	display: block;
+	height: 100%;
+	width: 0;
+	border-radius: 3px;
+	transition: width 0.2s ease-in-out, background-color 0.2s ease-in-out;
+	background: var(--color-error, #e9322d);
+}
+
+.idreg-meter span.level-2 { background: var(--color-warning, #eca700); }
+.idreg-meter span.level-3 { background: #b8bd00; }
+.idreg-meter span.level-4,
+.idreg-meter span.level-5 { background: var(--color-success, #46ba61); }
+
+.idreg-sub.warn { color: var(--color-error, #e9322d); }
+
+.idreg-rules {
+	list-style: none;
+	margin: 8px 0 0;
+	padding: 0;
+	font-size: 0.85rem;
+	color: var(--color-text-maxcontrast, #767676);
+}
+
+.idreg-rules li {
+	position: relative;
+	padding-left: 20px;
+	line-height: 1.7;
+}
+
+.idreg-rules li::before {
+	content: '·';
+	position: absolute;
+	left: 6px;
+}
+
+.idreg-rules li.met {
+	color: var(--color-success, #46ba61);
+}
+
+.idreg-rules li.met::before {
+	content: '✓';
+	left: 3px;
+}

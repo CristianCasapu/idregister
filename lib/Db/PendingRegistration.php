@@ -41,6 +41,8 @@ use OCP\AppFramework\Db\Entity;
 class PendingRegistration extends Entity
 {
     public const STATUS_PENDING = 'pending';
+    /** e-mail confirmed, waiting for the visitor to choose a password */
+    public const STATUS_VERIFIED = 'verified';
     public const STATUS_AWAITING_APPROVAL = 'awaiting_approval';
     public const STATUS_ACTIVE = 'active';
 

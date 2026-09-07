@@ -1,17 +1,28 @@
-/* The registration link under the sign-in form */
+/* The registration link under the sign-in form: a readable secondary button on any theme */
 .idregister-login-link {
 	display: block;
+	box-sizing: border-box;
+	width: 100%;
 	text-align: center;
-	margin-top: 8px;
+	margin-top: 10px;
 	padding: 12px 16px;
+	border: 2px solid var(--color-primary-element-text, #fff);
 	border-radius: var(--border-radius-element, 24px);
-	background: var(--color-background-translucent, rgba(255, 255, 255, 0.15));
-	color: var(--color-primary-element-text, #fff) !important;
-	font-weight: 500;
-	text-decoration: none;
+	background: var(--color-primary-element-text, #fff);
+	color: var(--color-primary-element, #0082c9) !important;
+	font-weight: 600;
+	text-decoration: none !important;
 }
 
 .idregister-login-link:hover,
 .idregister-login-link:focus-visible {
-	background: var(--color-primary-element-light-hover, rgba(255, 255, 255, 0.3));
+	background: transparent;
+	color: var(--color-primary-element-text, #fff) !important;
+}
+
+/* on a plain background (no theming colours behind the form) keep normal text colours */
+@media (prefers-color-scheme: dark) {
+	.idregister-login-link {
+		border-color: var(--color-primary-element-text, #fff);
+	}
 }

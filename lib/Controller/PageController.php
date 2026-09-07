@@ -15,6 +15,8 @@ use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http\Attribute\NoCSRFRequired;
 use OCP\AppFramework\Http\Attribute\OpenAPI;
 use OCP\AppFramework\Http\Attribute\PublicPage;
+use OCP\AppFramework\Http\RedirectResponse;
+use OCP\AppFramework\Http\Response;
 use OCP\AppFramework\Http\TemplateResponse;
 use OCP\AppFramework\Services\IInitialState;
 use OCP\IL10N;
@@ -32,6 +34,7 @@ class PageController extends Controller
         private Handoff $handoff,
         private FaceMatch $faceMatch,
         private IURLGenerator $urlGenerator,
+        private \OCP\IUserSession $userSession,
         private IL10N $l,
     ) {
         parent::__construct(Application::APP_ID, $request);
@@ -39,8 +42,13 @@ class PageController extends Controller
 
     #[PublicPage]
     #[NoCSRFRequired]
-    public function index(string $s = ''): TemplateResponse
+    public function index(string $s = ''): Response
     {
+        // someone who is already signed in has nothing to do here
+        if (null !== $this->userSession->getUser()) {
+            return new RedirectResponse($this->urlGenerator->linkToDefaultPageUrl());
+        }
+
         $mobile = Device::isMobile((string) $this->request->getHeader('User-Agent'));
         $handoffToken = trim($s);
         if ('' !== $handoffToken && null !== $this->handoff->get($handoffToken)) {
@@ -77,8 +85,12 @@ class PageController extends Controller
     /** The link in the confirmation e-mail. */
     #[PublicPage]
     #[NoCSRFRequired]
-    public function verify(string $token): TemplateResponse
+    public function verify(string $token): Response
     {
+        if (null !== $this->userSession->getUser()) {
+            return new RedirectResponse($this->urlGenerator->linkToDefaultPageUrl());
+        }
+
         $error = '';
         $result = null;
 
@@ -89,6 +101,13 @@ class PageController extends Controller
         } catch (\Throwable $e) {
             $error = $this->l->t('Something went wrong. Please try again.');
         }
+
+        $this->initialState->provideInitialState('verifyToken', '' === $error ? $token : '');
+        $this->initialState->provideInitialState('verifyResult', $result);
+        $this->initialState->provideInitialState('conditions', [
+            'minPasswordLength' => max(8, (int) $this->settings->get('minPasswordLength')),
+        ]);
+        $this->initialState->provideInitialState('loginUrl', $this->urlGenerator->linkToRouteAbsolute('core.login.showLoginForm'));
 
         return new TemplateResponse(Application::APP_ID, 'verified', [
             'error' => $error,

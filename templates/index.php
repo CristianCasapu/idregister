@@ -2,6 +2,7 @@
 declare(strict_types=1);
 \OCP\Util::addStyle('idregister', 'register');
 \OCP\Util::addScript('idregister', 'vendor/qrcode');
+\OCP\Util::addScript('idregister', 'password');
 \OCP\Util::addScript('idregister', 'register');
 /** @var \OCP\IL10N $l */
 ?>
@@ -11,8 +12,11 @@ declare(strict_types=1);
 	<div class="idreg-card">
 		<h1><?php p($l->t('Create your account')); ?></h1>
 
-		<div class="idreg-steps" aria-hidden="true">
-			<span class="dot on" data-dot="1"></span><span class="dot" data-dot="2"></span><span class="dot" data-dot="3"></span><span class="dot" data-dot="4"></span><span class="dot" data-dot="5"></span>
+		<div class="idreg-stepline">
+			<span class="idreg-stepcount" id="idreg-stepcount"></span>
+			<span class="idreg-steps" aria-hidden="true">
+				<span class="dot on" data-dot="1"></span><span class="dot" data-dot="2"></span><span class="dot" data-dot="3"></span><span class="dot" data-dot="4"></span><span class="dot" data-dot="5"></span><span class="dot" data-dot="6"></span>
+			</span>
 		</div>
 
 		<div class="idreg-message" id="idreg-message" role="alert" hidden></div>
@@ -88,11 +92,6 @@ declare(strict_types=1);
 				<label for="idreg-phone"><?php p($l->t('Phone number')); ?></label>
 				<input type="tel" id="idreg-phone" autocomplete="tel" inputmode="tel" placeholder="07xx xxx xxx" required>
 			</div>
-			<div class="idreg-field">
-				<label for="idreg-password"><?php p($l->t('Password')); ?></label>
-				<input type="password" id="idreg-password" autocomplete="new-password" minlength="10" required>
-				<span class="idreg-sub" id="idreg-password-hint"><?php p($l->t('At least 10 characters.')); ?></span>
-			</div>
 			<label class="idreg-check">
 				<input type="checkbox" id="idreg-terms">
 				<span>
@@ -102,7 +101,7 @@ declare(strict_types=1);
 			</label>
 			<div class="idreg-buttons">
 				<button type="button" class="idreg-button" id="idreg-back-2"><?php p($l->t('Back')); ?></button>
-				<button type="button" class="idreg-button primary" id="idreg-submit"><?php p($l->t('Create the account')); ?></button>
+				<button type="button" class="idreg-button primary" id="idreg-submit"><?php p($l->t('Continue')); ?></button>
 			</div>
 		</section>
 
@@ -120,8 +119,33 @@ declare(strict_types=1);
 			<p class="idreg-hint"><?php p($l->t('You can also just open the link in the e-mail.')); ?></p>
 		</section>
 
-		<!-- 6: done -->
+		<!-- 6: the password, and only now is the account created -->
 		<section class="idreg-step" data-step="6" hidden>
+			<p class="idreg-lead"><?php p($l->t('Last step: choose a password. Your account is created when you press the button.')); ?></p>
+			<div class="idreg-field">
+				<label for="idreg-password"><?php p($l->t('Password')); ?></label>
+				<div class="idreg-password-wrap">
+					<input type="password" id="idreg-password" autocomplete="new-password" minlength="10" required>
+					<button type="button" class="idreg-eye" id="idreg-eye" aria-label="<?php p($l->t('Show the password')); ?>">👁</button>
+				</div>
+				<div class="idreg-meter"><span id="idreg-meter-bar"></span></div>
+				<span class="idreg-sub" id="idreg-password-hint"></span>
+				<ul class="idreg-rules" id="idreg-rules">
+					<li data-rule="length"><?php p($l->t('At least 10 characters')); ?></li>
+					<li data-rule="case"><?php p($l->t('Small and capital letters')); ?></li>
+					<li data-rule="digit"><?php p($l->t('At least one digit')); ?></li>
+					<li data-rule="symbol"><?php p($l->t('A symbol makes it stronger')); ?></li>
+				</ul>
+			</div>
+			<div class="idreg-field">
+				<label for="idreg-password2"><?php p($l->t('Repeat the password')); ?></label>
+				<input type="password" id="idreg-password2" autocomplete="new-password" required>
+			</div>
+			<button type="button" class="idreg-button primary" id="idreg-finish" disabled><?php p($l->t('Create the account')); ?></button>
+		</section>
+
+		<!-- 7: done -->
+		<section class="idreg-step" data-step="7" hidden>
 			<p class="idreg-done" id="idreg-done-text"></p>
 			<a class="idreg-button primary" id="idreg-login" href="#"><?php p($l->t('Sign in')); ?></a>
 		</section>

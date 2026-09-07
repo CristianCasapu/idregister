@@ -226,7 +226,6 @@ class ApiController extends Controller
         string $handoff = '',
         string $email = '',
         string $phone = '',
-        string $password = '',
         string $language = 'en',
         bool $terms = false,
     ): JSONResponse {
@@ -254,7 +253,6 @@ class ApiController extends Controller
                 ],
                 $email,
                 $phone,
-                $password,
                 $language,
             );
             $this->session->remove(self::SESSION_PREFIX.$scanId);
@@ -278,9 +276,6 @@ class ApiController extends Controller
     {
         try {
             $result = $this->registration->confirmWithCode($token, $code);
-            if ('' !== $handoff) {
-                $this->handoff->advance($handoff, Handoff::STATE_CONFIRMED, (string) $result['name']);
-            }
 
             return new JSONResponse(['ok' => true] + $result, Http::STATUS_OK);
         } catch (\InvalidArgumentException $e) {
@@ -303,6 +298,29 @@ class ApiController extends Controller
         } catch (\InvalidArgumentException $e) {
             return $this->error($e->getMessage());
         } catch (\Throwable $e) {
+            return $this->error($this->l->t('Something went wrong. Please try again.'));
+        }
+    }
+
+    /**
+     * The very last step: the visitor picks a password and the account is created.
+     */
+    #[PublicPage]
+    #[AnonRateLimit(limit: 20, period: 3600)]
+    public function finish(string $token = '', string $password = '', string $handoff = ''): JSONResponse
+    {
+        try {
+            $result = $this->registration->finish($token, $password);
+            if ('' !== $handoff) {
+                $this->handoff->advance($handoff, Handoff::STATE_CONFIRMED, (string) $result['name']);
+            }
+
+            return new JSONResponse(['ok' => true] + $result, Http::STATUS_OK);
+        } catch (\InvalidArgumentException $e) {
+            return $this->error($e->getMessage());
+        } catch (\Throwable $e) {
+            $this->logger->error('idregister: the account could not be created', ['exception' => $e]);
+
             return $this->error($this->l->t('Something went wrong. Please try again.'));
         }
     }
