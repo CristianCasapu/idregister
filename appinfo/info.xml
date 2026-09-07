@@ -1,0 +1,46 @@
+<?xml version="1.0"?>
+<info xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://apps.nextcloud.com/schema/apps/info.xsd">
+    <id>idregister</id>
+    <name>ID card registration</name>
+    <name lang="ro">Înregistrare cu buletinul</name>
+    <summary>Self-registration from a phone with a photo of the identity card and a verified e-mail address</summary>
+    <summary lang="ro">Înregistrare de pe telefon, cu poza cărții de identitate și adresă de e-mail verificată</summary>
+    <description><![CDATA[
+Visitors register themselves from their phone: they photograph their Romanian identity card, the
+server reads the name and given names from it (Tesseract OCR, MRZ and check-digit validated CNP),
+and they add an e-mail address, a phone number and a password.
+
+Only the e-mail address is verified, with a six digit code and a confirmation link. The name taken
+from the identity card, the e-mail address and the phone number cannot be changed afterwards.
+
+The picture of the identity card is never stored: it is read in memory and discarded. The personal
+number (CNP) is not stored either — only a salted hash of it, so the same card cannot be used twice.
+
+The card reader is a PHP port of the parser in the NecMat app (github.com/CristianCasapu/necmat).
+    ]]></description>
+    <version>1.0.0</version>
+    <licence>agpl</licence>
+    <author mail="casapucristian@gmail.com">Cristian Casapu</author>
+    <namespace>IdRegister</namespace>
+    <category>security</category>
+    <category>tools</category>
+    <website>https://github.com/CristianCasapu/idregister</website>
+    <bugs>https://github.com/CristianCasapu/idregister/issues</bugs>
+    <repository type="git">https://github.com/CristianCasapu/idregister.git</repository>
+    <dependencies>
+        <php min-version="8.1"/>
+        <nextcloud min-version="30" max-version="34"/>
+    </dependencies>
+    <background-jobs>
+        <job>OCA\IdRegister\Cron\CleanupJob</job>
+    </background-jobs>
+    <commands>
+        <command>OCA\IdRegister\Command\Cleanup</command>
+        <command>OCA\IdRegister\Command\Scan</command>
+    </commands>
+    <settings>
+        <admin>OCA\IdRegister\Settings\Admin</admin>
+        <admin-section>OCA\IdRegister\Settings\AdminSection</admin-section>
+        <personal>OCA\IdRegister\Settings\Personal</personal>
+    </settings>
+</info>
