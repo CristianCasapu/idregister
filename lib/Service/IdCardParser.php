@@ -83,6 +83,12 @@ final class IdCardParser
         $printedSurname = $surnameIdx >= 0 ? self::valueAfter($lines, $surnameIdx) : null;
         $printedGiven = $givenIdx >= 0 ? self::valueAfter($lines, $givenIdx) : null;
 
+        // The machine readable zone is printed in OCR-B, where I/T, O/0 and S/5 are easy to mix up.
+        // When the same name is also printed elsewhere on the card and differs by a single letter,
+        // the printed spelling wins: it is the one a human would read.
+        $mrzSurname = self::correctAgainstText($mrzSurname, $lines);
+        $mrzGiven = self::correctAgainstText($mrzGiven, $lines);
+
         [$surname, $surnameSure] = self::pick($printedSurname, $mrzSurname);
         [$given, $givenSure] = self::pick($printedGiven, $mrzGiven);
 
@@ -94,6 +100,46 @@ final class IdCardParser
             $givenSure && '' !== $given,
             '' !== $cnp && self::isValidCnp($cnp),
         );
+    }
+
+    /**
+     * Birth date encoded in a Romanian personal number, or null when it cannot be read.
+     * The first digit says both the sex and the century: 1/2 → 1900s, 3/4 → 1800s,
+     * 5/6 → 2000s, 7/8/9 → residents and foreigners, dated like 1/2.
+     */
+    public static function birthDateFromCnp(string $cnp): ?\DateTimeImmutable
+    {
+        if (!self::isValidCnp($cnp)) {
+            return null;
+        }
+        $century = match ($cnp[0]) {
+            '1', '2', '7', '8', '9' => 1900,
+            '3', '4' => 1800,
+            '5', '6' => 2000,
+            default => null,
+        };
+        if (null === $century) {
+            return null;
+        }
+        $year = $century + (int) substr($cnp, 1, 2);
+        $month = (int) substr($cnp, 3, 2);
+        $day = (int) substr($cnp, 5, 2);
+        if (!checkdate($month, $day, $year)) {
+            return null;
+        }
+
+        return (new \DateTimeImmutable())->setDate($year, $month, $day)->setTime(0, 0);
+    }
+
+    /** Age in whole years today, or null when the personal number cannot be read. */
+    public static function ageFromCnp(string $cnp, ?\DateTimeImmutable $today = null): ?int
+    {
+        $birth = self::birthDateFromCnp($cnp);
+        if (null === $birth) {
+            return null;
+        }
+
+        return $birth->diff($today ?? new \DateTimeImmutable('today'))->y;
     }
 
     /** Romanian personal number: 13 digits, plausible date and a valid check digit. */
@@ -215,6 +261,66 @@ final class IdCardParser
         ];
     }
 
+    /**
+     * Fix a name read from the machine readable zone against the same name printed on the card.
+     *
+     * @param list<string> $lines
+     */
+    private static function correctAgainstText(?string $name, array $lines): ?string
+    {
+        if (null === $name || '' === trim($name)) {
+            return $name;
+        }
+        $parts = preg_split('/\s+/u', trim($name)) ?: [];
+        $fixed = [];
+        foreach ($parts as $part) {
+            $fixed[] = self::correctWord($part, $lines);
+        }
+
+        return implode(' ', $fixed);
+    }
+
+    /** @param list<string> $lines */
+    private static function correctWord(string $word, array $lines): string
+    {
+        if (mb_strlen($word) < 4) {
+            return $word;
+        }
+        foreach ($lines as $line) {
+            if (self::isMrzLine($line)) {
+                continue;
+            }
+            foreach (preg_split('/[^\p{L}\-]+/u', $line) ?: [] as $token) {
+                $token = trim($token, '-');
+                if (mb_strlen($token) !== mb_strlen($word)) {
+                    continue;
+                }
+                if (1 === self::differences(mb_strtoupper($token), mb_strtoupper($word))) {
+                    return mb_strtoupper($token);
+                }
+            }
+        }
+
+        return $word;
+    }
+
+    /** How many characters differ, stopping at 2 (that is all the caller needs). */
+    private static function differences(string $a, string $b): int
+    {
+        $count = 0;
+        $length = mb_strlen($a);
+        for ($i = 0; $i < $length; ++$i) {
+            if (mb_substr($a, $i, 1) !== mb_substr($b, $i, 1)) {
+                ++$count;
+                if ($count > 1) {
+                    return 2;
+                }
+            }
+        }
+
+        return $count;
+    }
+
     /** @return array{0:string,1:bool} value and whether it is confirmed by two sources */
     private static function pick(?string $printed, ?string $mrz): array
     {
@@ -259,8 +365,16 @@ final class IdCardParser
     {
         $s = self::fixLetters($raw);
         $s = preg_replace("/[^\p{L}\-' ]/u", ' ', $s) ?? $s;
+        $s = trim(preg_replace('/\s+/u', ' ', $s) ?? $s);
 
-        return trim(preg_replace('/\s+/u', ' ', $s) ?? $s);
+        // Single letters next to a name are leftovers from the label or from a stamp
+        // ("d „> IONESCU" → "IONESCU"); no Romanian given name is one letter long.
+        $words = array_values(array_filter(
+            explode(' ', $s),
+            static fn (string $word): bool => mb_strlen(trim($word, "-'")) > 1,
+        ));
+
+        return implode(' ', $words);
     }
 
     /** @return list<string> */

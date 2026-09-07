@@ -5,6 +5,9 @@ declare(strict_types=1);
 namespace OCA\IdRegister\Controller;
 
 use OCA\IdRegister\AppInfo\Application;
+use OCA\IdRegister\Service\Device;
+use OCA\IdRegister\Service\FaceMatch;
+use OCA\IdRegister\Service\Handoff;
 use OCA\IdRegister\Service\Ocr;
 use OCA\IdRegister\Service\Registration;
 use OCA\IdRegister\Service\Settings;
@@ -26,6 +29,8 @@ class PageController extends Controller
         private IInitialState $initialState,
         private Settings $settings,
         private Registration $registration,
+        private Handoff $handoff,
+        private FaceMatch $faceMatch,
         private IURLGenerator $urlGenerator,
         private IL10N $l,
     ) {
@@ -34,10 +39,30 @@ class PageController extends Controller
 
     #[PublicPage]
     #[NoCSRFRequired]
-    public function index(): TemplateResponse
+    public function index(string $s = ''): TemplateResponse
     {
+        $mobile = Device::isMobile((string) $this->request->getHeader('User-Agent'));
+        $handoffToken = trim($s);
+        if ('' !== $handoffToken && null !== $this->handoff->get($handoffToken)) {
+            $this->handoff->advance($handoffToken, Handoff::STATE_OPENED);
+        } else {
+            $handoffToken = '';
+        }
+
+        $this->initialState->provideInitialState('mobile', $mobile);
+        $this->initialState->provideInitialState('mobileOnly', (bool) $this->settings->get('mobileOnly'));
+        $this->initialState->provideInitialState('handoff', $handoffToken);
         $this->initialState->provideInitialState('registrationOpen', (bool) $this->settings->get('registrationOpen'));
         $this->initialState->provideInitialState('requireApproval', (bool) $this->settings->get('requireApproval'));
+        $this->initialState->provideInitialState('conditions', [
+            'minPasswordLength' => max(8, (int) $this->settings->get('minPasswordLength')),
+            'requirePhone' => (bool) $this->settings->get('requirePhone'),
+            'minAge' => (int) $this->settings->get('minAge'),
+            'termsUrl' => (string) $this->settings->get('termsUrl'),
+            'requireSelfie' => (bool) $this->settings->get('requireSelfie') && $this->faceMatch->available(),
+            'acceptIdCard' => (bool) $this->settings->get('acceptIdCard'),
+            'acceptDrivingLicence' => (bool) $this->settings->get('acceptDrivingLicence'),
+        ]);
         $this->initialState->provideInitialState('ocr', Ocr::status()['ok']);
         $this->initialState->provideInitialState('loginUrl', $this->urlGenerator->linkToRouteAbsolute('core.login.showLoginForm'));
 

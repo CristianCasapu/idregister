@@ -30,6 +30,12 @@ class Application extends App implements IBootstrap
         $context->registerEventListener(UserDeletedEvent::class, UserDeletedListener::class);
         $context->registerNotifierService(Notifier::class);
         $context->registerSetupCheck(\OCA\IdRegister\SetupChecks\TesseractCheck::class);
+        // "Create an account with your identity card" under the sign-in form
+        if (method_exists($context, 'registerAlternativeLoginProvider')) {
+            $context->registerAlternativeLoginProvider(\OCA\IdRegister\Login\RegisterLink::class);
+        } else {
+            $context->registerAlternativeLogin(\OCA\IdRegister\Login\RegisterLink::class);
+        }
     }
 
     public function boot(IBootContext $context): void {}

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace OCA\IdRegister\Settings;
 
 use OCA\IdRegister\AppInfo\Application;
+use OCA\IdRegister\Service\FaceMatch;
 use OCA\IdRegister\Service\Ocr;
 use OCA\IdRegister\Service\Settings;
 use OCP\AppFramework\Http\TemplateResponse;
@@ -19,6 +20,7 @@ final class Admin implements ISettings
         private IInitialState $initialState,
         private Settings $settings,
         private IGroupManager $groupManager,
+        private FaceMatch $faceMatch,
         private IURLGenerator $urlGenerator,
     ) {}
 
@@ -30,6 +32,7 @@ final class Admin implements ISettings
         }
         $this->initialState->provideInitialState('config', $this->settings->all());
         $this->initialState->provideInitialState('ocr', Ocr::status());
+        $this->initialState->provideInitialState('faces', $this->faceMatch->status());
         $this->initialState->provideInitialState('groups', $groups);
         $this->initialState->provideInitialState('registerUrl', $this->urlGenerator->linkToRouteAbsolute('idregister.page.index'));
 

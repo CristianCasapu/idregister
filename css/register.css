@@ -198,3 +198,63 @@
 @media (min-width: 700px) {
 	.idreg { padding: 40px 12px; }
 }
+
+/* handing the registration over to a phone */
+.idreg-qr {
+	display: flex;
+	justify-content: center;
+	margin: 8px 0 4px;
+}
+
+.idreg-qr canvas {
+	border-radius: 8px;
+	background: #fff;
+	padding: 4px;
+	max-width: 100%;
+	height: auto;
+}
+
+#idreg-qr-url {
+	word-break: break-all;
+	text-align: center;
+	font-size: 0.78rem;
+}
+
+.idreg-progress {
+	list-style: none;
+	margin: 14px 0 0;
+	padding: 0;
+}
+
+.idreg-progress li {
+	position: relative;
+	padding: 6px 0 6px 26px;
+	color: var(--color-text-maxcontrast, #767676);
+}
+
+.idreg-progress li::before {
+	content: '○';
+	position: absolute;
+	left: 4px;
+}
+
+.idreg-progress li.done {
+	color: var(--color-main-text, #222);
+	font-weight: 500;
+}
+
+.idreg-progress li.done::before {
+	content: '✓';
+	color: var(--color-success, #46ba61);
+}
+
+#idreg-selfie-preview {
+	display: block;
+	width: 100%;
+	max-width: 260px;
+	margin: 12px auto 0;
+	border-radius: 10px;
+	max-height: 40vh;
+	object-fit: contain;
+	background: #000;
+}

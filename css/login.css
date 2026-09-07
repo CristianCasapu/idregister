@@ -1,0 +1,17 @@
+/* The registration link under the sign-in form */
+.idregister-login-link {
+	display: block;
+	text-align: center;
+	margin-top: 8px;
+	padding: 12px 16px;
+	border-radius: var(--border-radius-element, 24px);
+	background: var(--color-background-translucent, rgba(255, 255, 255, 0.15));
+	color: var(--color-primary-element-text, #fff) !important;
+	font-weight: 500;
+	text-decoration: none;
+}
+
+.idregister-login-link:hover,
+.idregister-login-link:focus-visible {
+	background: var(--color-primary-element-light-hover, rgba(255, 255, 255, 0.3));
+}

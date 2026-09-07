@@ -11,6 +11,9 @@ return [
         ['name' => 'api#register', 'url' => '/api/register', 'verb' => 'POST'],
         ['name' => 'api#verifyCode', 'url' => '/api/verify', 'verb' => 'POST'],
         ['name' => 'api#resend', 'url' => '/api/resend', 'verb' => 'POST'],
+        ['name' => 'api#selfie', 'url' => '/api/selfie', 'verb' => 'POST'],
+        ['name' => 'api#handoffCreate', 'url' => '/api/handoff', 'verb' => 'POST'],
+        ['name' => 'api#handoffStatus', 'url' => '/api/handoff/{token}', 'verb' => 'GET'],
         // administration
         ['name' => 'admin#config', 'url' => '/api/admin/config', 'verb' => 'GET'],
         ['name' => 'admin#setConfig', 'url' => '/api/admin/config', 'verb' => 'PUT'],

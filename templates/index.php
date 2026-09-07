@@ -1,6 +1,7 @@
 <?php
 declare(strict_types=1);
 \OCP\Util::addStyle('idregister', 'register');
+\OCP\Util::addScript('idregister', 'vendor/qrcode');
 \OCP\Util::addScript('idregister', 'register');
 /** @var \OCP\IL10N $l */
 ?>
@@ -11,27 +12,40 @@ declare(strict_types=1);
 		<h1><?php p($l->t('Create your account')); ?></h1>
 
 		<div class="idreg-steps" aria-hidden="true">
-			<span class="dot on" data-dot="1"></span><span class="dot" data-dot="2"></span><span class="dot" data-dot="3"></span><span class="dot" data-dot="4"></span>
+			<span class="dot on" data-dot="1"></span><span class="dot" data-dot="2"></span><span class="dot" data-dot="3"></span><span class="dot" data-dot="4"></span><span class="dot" data-dot="5"></span>
 		</div>
 
 		<div class="idreg-message" id="idreg-message" role="alert" hidden></div>
 
-		<!-- 1: the identity card -->
-		<section class="idreg-step" data-step="1">
-			<p class="idreg-lead"><?php p($l->t('Take a picture of your identity card. We read your name from it and then delete the picture — it is never stored.')); ?></p>
+		<!-- 0: on a computer, hand over to a phone -->
+		<section class="idreg-step" data-step="0" hidden>
+			<p class="idreg-lead"><?php p($l->t('You need a camera and your document in hand, so this is done on a phone or a tablet. Scan this code with its camera.')); ?></p>
+			<div class="idreg-qr"><canvas id="idreg-qr"></canvas></div>
+			<p class="idreg-hint" id="idreg-qr-url"></p>
+			<ol class="idreg-progress" id="idreg-progress">
+				<li data-state="opened"><?php p($l->t('Opened on the phone')); ?></li>
+				<li data-state="document"><?php p($l->t('Document read')); ?></li>
+				<li data-state="registered"><?php p($l->t('Account created')); ?></li>
+				<li data-state="confirmed"><?php p($l->t('E-mail address confirmed')); ?></li>
+			</ol>
+		</section>
+
+		<!-- 1: the document -->
+		<section class="idreg-step" data-step="1" hidden>
+			<p class="idreg-lead" id="idreg-doc-lead"><?php p($l->t('Take a picture of your identity card. We read your name from it and then delete the picture — it is never stored.')); ?></p>
 			<label class="idreg-capture" for="idreg-file">
 				<span class="idreg-capture-icon" aria-hidden="true">📷</span>
-				<span id="idreg-capture-text"><?php p($l->t('Photograph the identity card')); ?></span>
+				<span id="idreg-capture-text"><?php p($l->t('Photograph the document')); ?></span>
 			</label>
 			<input type="file" id="idreg-file" accept="image/*" capture="environment" hidden>
 			<img id="idreg-preview" alt="" hidden>
-			<p class="idreg-hint"><?php p($l->t('Put the whole card in the frame, on a dark surface, without reflections.')); ?></p>
-			<button type="button" class="idreg-button primary" id="idreg-scan" disabled><?php p($l->t('Read the card')); ?></button>
+			<p class="idreg-hint"><?php p($l->t('Put the whole document in the frame, on a dark surface, without reflections.')); ?></p>
+			<button type="button" class="idreg-button primary" id="idreg-scan" disabled><?php p($l->t('Read the document')); ?></button>
 		</section>
 
 		<!-- 2: what was read -->
 		<section class="idreg-step" data-step="2" hidden>
-			<p class="idreg-lead"><?php p($l->t('This is what we read. The name comes from the identity card and cannot be changed.')); ?></p>
+			<p class="idreg-lead"><?php p($l->t('This is what we read. The name comes from the document and cannot be changed.')); ?></p>
 			<div class="idreg-field">
 				<label for="idreg-given"><?php p($l->t('Given names')); ?></label>
 				<input type="text" id="idreg-given" readonly>
@@ -40,14 +54,31 @@ declare(strict_types=1);
 				<label for="idreg-surname"><?php p($l->t('Surname')); ?></label>
 				<input type="text" id="idreg-surname" readonly>
 			</div>
+			<p class="idreg-hint" id="idreg-doc-type"></p>
 			<div class="idreg-buttons">
 				<button type="button" class="idreg-button" id="idreg-again"><?php p($l->t('Take another picture')); ?></button>
 				<button type="button" class="idreg-button primary" id="idreg-confirm-card"><?php p($l->t('This is me')); ?></button>
 			</div>
 		</section>
 
-		<!-- 3: contact details -->
+		<!-- 3: the selfie -->
 		<section class="idreg-step" data-step="3" hidden>
+			<p class="idreg-lead"><?php p($l->t('Now a selfie, so we can see that the document is yours. It is compared with the photo on the document and then deleted.')); ?></p>
+			<label class="idreg-capture" for="idreg-selfie-file">
+				<span class="idreg-capture-icon" aria-hidden="true">🙂</span>
+				<span id="idreg-selfie-text"><?php p($l->t('Take a selfie')); ?></span>
+			</label>
+			<input type="file" id="idreg-selfie-file" accept="image/*" capture="user" hidden>
+			<img id="idreg-selfie-preview" alt="" hidden>
+			<p class="idreg-hint"><?php p($l->t('Hold the phone in front of your face, in good light, without sunglasses or a hat.')); ?></p>
+			<div class="idreg-buttons">
+				<button type="button" class="idreg-button" id="idreg-back-selfie"><?php p($l->t('Back')); ?></button>
+				<button type="button" class="idreg-button primary" id="idreg-check-selfie" disabled><?php p($l->t('Check the selfie')); ?></button>
+			</div>
+		</section>
+
+		<!-- 4: contact details -->
+		<section class="idreg-step" data-step="4" hidden>
 			<div class="idreg-field">
 				<label for="idreg-email"><?php p($l->t('E-mail address')); ?></label>
 				<input type="email" id="idreg-email" autocomplete="email" inputmode="email" required>
@@ -60,11 +91,14 @@ declare(strict_types=1);
 			<div class="idreg-field">
 				<label for="idreg-password"><?php p($l->t('Password')); ?></label>
 				<input type="password" id="idreg-password" autocomplete="new-password" minlength="10" required>
-				<span class="idreg-sub"><?php p($l->t('At least 10 characters.')); ?></span>
+				<span class="idreg-sub" id="idreg-password-hint"><?php p($l->t('At least 10 characters.')); ?></span>
 			</div>
 			<label class="idreg-check">
 				<input type="checkbox" id="idreg-terms">
-				<span><?php p($l->t('I agree that my name is taken from my identity card and that my e-mail address and phone number are stored. The picture of the card and my personal number are not kept.')); ?></span>
+				<span>
+					<?php p($l->t('I agree that my name is taken from my document and that my e-mail address and phone number are stored. The pictures of the document and of my face, and my personal number, are not kept.')); ?>
+					<a id="idreg-terms-link" href="#" target="_blank" rel="noopener" hidden><?php p($l->t('Read more')); ?></a>
+				</span>
 			</label>
 			<div class="idreg-buttons">
 				<button type="button" class="idreg-button" id="idreg-back-2"><?php p($l->t('Back')); ?></button>
@@ -72,8 +106,8 @@ declare(strict_types=1);
 			</div>
 		</section>
 
-		<!-- 4: e-mail confirmation -->
-		<section class="idreg-step" data-step="4" hidden>
+		<!-- 5: e-mail confirmation -->
+		<section class="idreg-step" data-step="5" hidden>
 			<p class="idreg-lead" id="idreg-sent"></p>
 			<div class="idreg-field">
 				<label for="idreg-code"><?php p($l->t('Confirmation code')); ?></label>
@@ -86,12 +120,12 @@ declare(strict_types=1);
 			<p class="idreg-hint"><?php p($l->t('You can also just open the link in the e-mail.')); ?></p>
 		</section>
 
-		<!-- 5: done -->
-		<section class="idreg-step" data-step="5" hidden>
+		<!-- 6: done -->
+		<section class="idreg-step" data-step="6" hidden>
 			<p class="idreg-done" id="idreg-done-text"></p>
 			<a class="idreg-button primary" id="idreg-login" href="#"><?php p($l->t('Sign in')); ?></a>
 		</section>
 
-		<div class="idreg-spinner" id="idreg-spinner" hidden><span></span><?php p($l->t('Working …')); ?></div>
+		<div class="idreg-spinner" id="idreg-spinner" hidden><span></span><span id="idreg-spinner-text"><?php p($l->t('Working …')); ?></span></div>
 	</div>
 </div>

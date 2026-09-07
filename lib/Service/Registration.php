@@ -51,7 +51,7 @@ final class Registration
     /**
      * Create the (disabled) account and send the confirmation e-mail.
      *
-     * @param array{surname:string, givenNames:string, cnp:string} $card
+     * @param array{surname:string, givenNames:string, cnp:string, type?:string, birthDate?:string, needsReview?:bool} $card
      *
      * @return array{token:string, email:string, uid:string}
      *
@@ -74,24 +74,47 @@ final class Registration
         if (!$this->settings->emailAllowed($email)) {
             throw new \InvalidArgumentException($this->l->t('This e-mail domain cannot be used here.'));
         }
-        $phone = self::normalizePhone($phone);
-        if (null === $phone) {
+        $phoneRequired = (bool) $this->settings->get('requirePhone');
+        $phone = '' === trim($phone) && !$phoneRequired ? '' : (string) self::normalizePhone($phone);
+        if ('' === $phone && $phoneRequired) {
             throw new \InvalidArgumentException($this->l->t('This phone number is not valid.'));
         }
-        if (mb_strlen($password) < 10) {
-            throw new \InvalidArgumentException($this->l->t('The password must have at least 10 characters.'));
+        $minPassword = max(8, (int) $this->settings->get('minPasswordLength'));
+        if (mb_strlen($password) < $minPassword) {
+            throw new \InvalidArgumentException($this->l->n('The password must have at least %n character.', 'The password must have at least %n characters.', $minPassword));
+        }
+
+        // conditions the administrator set
+        $isIdCard = DocumentReader::TYPE_ID_CARD === ($card['type'] ?? DocumentReader::TYPE_ID_CARD);
+        if ($isIdCard && $this->settings->get('requireValidCnp') && !IdCardParser::isValidCnp($card['cnp'])) {
+            throw new \InvalidArgumentException($this->l->t('The personal number could not be read from the card. Take the picture again, straight and in good light.'));
+        }
+        $minAge = (int) $this->settings->get('minAge');
+        if ($minAge > 0) {
+            $age = self::ageOf($card);
+            if (null === $age || $age < $minAge) {
+                throw new \InvalidArgumentException($this->l->t('You have to be at least %d years old to register here.', [$minAge]));
+            }
+        }
+        $maxAccounts = (int) $this->settings->get('maxAccounts');
+        if ($maxAccounts > 0 && \count($this->mapper->findAll()) >= $maxAccounts) {
+            throw new \InvalidArgumentException($this->l->t('Registration is closed: the number of accounts that can be created this way has been reached.'));
         }
 
         // one account per person / per address
         if (\count($this->userManager->getByEmail($email)) > 0 || null !== $this->mapper->findByEmail($email)) {
             throw new \InvalidArgumentException($this->l->t('An account with this e-mail address already exists.'));
         }
+        // One document, one account. With a personal number the hash is exact; a driving licence
+        // has none, so the name and the date of birth stand in for it.
         $cnpHash = '';
         if ('' !== $card['cnp']) {
             $cnpHash = hash('sha256', $card['cnp'].$this->settings->cnpSecret());
-            if ($this->settings->get('oneAccountPerCard') && null !== $this->mapper->findByCnpHash($cnpHash)) {
-                throw new \InvalidArgumentException($this->l->t('An account was already created with this identity card.'));
-            }
+        } elseif ('' !== (string) ($card['birthDate'] ?? '')) {
+            $cnpHash = hash('sha256', mb_strtolower($surname.'|'.$given.'|'.$card['birthDate']).$this->settings->cnpSecret());
+        }
+        if ('' !== $cnpHash && $this->settings->get('oneAccountPerCard') && null !== $this->mapper->findByCnpHash($cnpHash)) {
+            throw new \InvalidArgumentException($this->l->t('An account was already created with this identity card.'));
         }
 
         $uid = $this->uniqueUid($given, $surname);
@@ -120,6 +143,10 @@ final class Registration
         $pending->setCode($this->newCode());
         $pending->setAttempts(0);
         $pending->setStatus(PendingRegistration::STATUS_PENDING);
+        $pending->setDocumentType((string) ($card['type'] ?? DocumentReader::TYPE_ID_CARD));
+        // an uncertain selfie always goes past an administrator, whatever the general setting says
+        $pending->setNeedsReview((bool) ($card['needsReview'] ?? false));
+        $pending->setSelfieDistance((float) ($card['selfieDistance'] ?? 0));
         $pending->setCreatedAt($now);
         $pending->setExpiresAt($now + max(1, (int) $this->settings->get('expiryHours')) * 3600);
         $pending = $this->mapper->insert($pending);
@@ -134,7 +161,7 @@ final class Registration
 
             throw new \InvalidArgumentException($this->l->t('The confirmation e-mail could not be sent. Please check the address, or try again later.'));
         }
-        $this->logger->info('idregister: registration started for '.$uid.' ('.$email.')');
+        $this->logger->info('idregister: registration started for '.$uid.' ('.$email.')'.($pending->getNeedsReview() ? ' — the selfie needs a look' : ''));
 
         return ['token' => $pending->getToken(), 'email' => $email, 'uid' => $uid];
     }
@@ -224,6 +251,24 @@ final class Registration
         return $removed;
     }
 
+    /** @param array{cnp:string, birthDate?:string} $card */
+    private static function ageOf(array $card): ?int
+    {
+        if ('' !== $card['cnp']) {
+            return IdCardParser::ageFromCnp($card['cnp']);
+        }
+        $birth = (string) ($card['birthDate'] ?? '');
+        if ('' === $birth) {
+            return null;
+        }
+
+        try {
+            return (new \DateTimeImmutable($birth))->diff(new \DateTimeImmutable('today'))->y;
+        } catch (\Throwable $e) {
+            return null;
+        }
+    }
+
     /** @return array{status:string, uid:string, name:string} */
     private function activate(PendingRegistration $pending): array
     {
@@ -238,18 +283,21 @@ final class Registration
         // from now on the name, the e-mail address and the phone number are fixed
         $this->lock($pending);
 
-        if ($this->settings->get('requireApproval')) {
+        if ($this->settings->get('requireApproval') || $pending->getNeedsReview()) {
             $pending->setStatus(PendingRegistration::STATUS_AWAITING_APPROVAL);
             $this->mapper->update($pending);
             $this->notifyAdmins($pending);
+            $this->mailAdmins($pending, true);
         } else {
             $user->setEnabled(true);
-            $group = (string) $this->settings->get('defaultGroup');
-            if ('' !== $group && $this->groupManager->groupExists($group)) {
-                $this->groupManager->get($group)?->addUser($user);
+            foreach ($this->settings->groups() as $group) {
+                if ($this->groupManager->groupExists($group)) {
+                    $this->groupManager->get($group)?->addUser($user);
+                }
             }
             $pending->setStatus(PendingRegistration::STATUS_ACTIVE);
             $this->mapper->update($pending);
+            $this->mailAdmins($pending, false);
         }
         $this->logger->info('idregister: '.$pending->getUid().' confirmed their e-mail address ('.$pending->getStatus().')');
 
@@ -344,6 +392,38 @@ final class Registration
         $failed = $this->mailer->send($message);
         if (\count($failed) > 0) {
             throw new \RuntimeException('the mail server refused '.implode(', ', $failed));
+        }
+    }
+
+    /** Optional e-mail to the administrators for every new account. */
+    private function mailAdmins(PendingRegistration $pending, bool $needsApproval): void
+    {
+        if (!$this->settings->get('notifyAdmins')) {
+            return;
+        }
+        $subject = $needsApproval ? 'A registration is waiting for approval' : 'A new account was created';
+        $body = $pending->getFullName().' ('.$pending->getEmail().', '.$pending->getPhone().') — '.$pending->getUid();
+
+        foreach ($this->groupManager->get('admin')?->getUsers() ?? [] as $admin) {
+            $address = $admin->getSystemEMailAddress();
+            if (null === $address || '' === $address) {
+                continue;
+            }
+
+            try {
+                $template = $this->mailer->createEMailTemplate('idregister.AdminNotice', []);
+                $template->setSubject($subject);
+                $template->addHeader();
+                $template->addHeading($subject);
+                $template->addBodyText($body);
+                $template->addFooter();
+                $message = $this->mailer->createMessage();
+                $message->setTo([$address => $admin->getDisplayName()]);
+                $message->useTemplate($template);
+                $this->mailer->send($message);
+            } catch (\Throwable $e) {
+                $this->logger->warning('idregister: could not tell '.$admin->getUID().' about the new registration', ['exception' => $e]);
+            }
         }
     }
 

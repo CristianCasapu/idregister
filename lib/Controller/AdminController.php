@@ -6,6 +6,7 @@ namespace OCA\IdRegister\Controller;
 
 use OCA\IdRegister\AppInfo\Application;
 use OCA\IdRegister\Db\PendingRegistrationMapper;
+use OCA\IdRegister\Service\FaceMatch;
 use OCA\IdRegister\Service\Ocr;
 use OCA\IdRegister\Service\Registration;
 use OCA\IdRegister\Service\Settings;
@@ -26,6 +27,7 @@ class AdminController extends Controller
         private PendingRegistrationMapper $mapper,
         private IUserManager $userManager,
         private Ocr $ocr,
+        private FaceMatch $faceMatch,
     ) {
         parent::__construct(Application::APP_ID, $request);
     }
@@ -35,6 +37,7 @@ class AdminController extends Controller
         return new JSONResponse([
             'config' => $this->settings->all(),
             'ocr' => Ocr::status(),
+            'faces' => $this->faceMatch->status(),
         ]);
     }
 
@@ -98,7 +101,7 @@ class AdminController extends Controller
         @unlink($file['tmp_name']);
 
         try {
-            $card = $this->ocr->readIdCard((string) $data);
+            $card = $this->ocr->readDocument((string) $data);
             unset($card['cnp']); // never shown, not even to an administrator
 
             return new JSONResponse(['ok' => true, 'card' => $card]);

@@ -31,6 +31,12 @@ use OCP\AppFramework\Db\Entity;
  * @method void setCreatedAt(int $createdAt)
  * @method int getExpiresAt()
  * @method void setExpiresAt(int $expiresAt)
+ * @method string getDocumentType()
+ * @method void setDocumentType(string $documentType)
+ * @method bool getNeedsReview()
+ * @method void setNeedsReview(bool $needsReview)
+ * @method float getSelfieDistance()
+ * @method void setSelfieDistance(float $selfieDistance)
  */
 class PendingRegistration extends Entity
 {
@@ -50,6 +56,9 @@ class PendingRegistration extends Entity
     protected $status;
     protected $createdAt;
     protected $expiresAt;
+    protected $documentType;
+    protected $needsReview;
+    protected $selfieDistance;
 
     public function __construct()
     {
@@ -65,6 +74,9 @@ class PendingRegistration extends Entity
         $this->addType('status', 'string');
         $this->addType('createdAt', 'integer');
         $this->addType('expiresAt', 'integer');
+        $this->addType('documentType', 'string');
+        $this->addType('needsReview', 'boolean');
+        $this->addType('selfieDistance', 'float');
     }
 
     public function getFullName(): string

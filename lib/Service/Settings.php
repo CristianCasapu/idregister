@@ -16,7 +16,8 @@ final class Settings
     public const DEFAULTS = [
         'registrationOpen' => false,
         'requireApproval' => false,
-        'defaultGroup' => '',
+        // groups the new account joins, comma separated
+        'defaultGroups' => '',
         'quota' => '',
         // e-mail domains: empty = anything goes; otherwise a comma separated list
         'allowedDomains' => '',
@@ -27,6 +28,34 @@ final class Settings
         'minConfidence' => 0.55,
         // a card can only be used once
         'oneAccountPerCard' => true,
+        // the identity card must carry a personal number that passes its check digit
+        'requireValidCnp' => true,
+        // the name has to be confirmed twice (printed and machine readable zone), so a misread
+        // name is never locked onto an account
+        'requireConfirmedName' => true,
+        // youngest age accepted, read from the personal number (0 = no limit)
+        'minAge' => 0,
+        'requirePhone' => true,
+        'minPasswordLength' => 10,
+        // stop after this many accounts have been created this way (0 = no limit)
+        'maxAccounts' => 0,
+        // shown next to the consent checkbox
+        'termsUrl' => '',
+        // e-mail the administrators on every new registration
+        'notifyAdmins' => false,
+        // the selfie has to show the person on the document
+        'requireSelfie' => true,
+        // measured on a real library: same person 0.43–1.13, different people 1.27–1.49
+        'selfieMatchDistance' => 1.15,
+        'selfieReviewDistance' => 1.30,
+        // which documents are accepted
+        'acceptIdCard' => true,
+        'acceptDrivingLicence' => true,
+        // only when the automatic detection picks the wrong Python
+        'pythonBinary' => '',
+        'insightfaceRoot' => '',
+        // registration only from a phone or tablet; a desktop gets a QR code
+        'mobileOnly' => true,
     ];
 
     public function __construct(private IAppConfig $config) {}
@@ -71,6 +100,12 @@ final class Settings
     public function get(string $key): mixed
     {
         return $this->all()[$key] ?? null;
+    }
+
+    /** @return list<string> the groups a new account joins */
+    public function groups(): array
+    {
+        return array_values(array_filter(array_map('trim', explode(',', (string) $this->get('defaultGroups')))));
     }
 
     /**

@@ -35,9 +35,12 @@ final class Scan extends Command
         }
         $start = microtime(true);
         $card = $this->ocr->readIdCard((string) file_get_contents($file));
-        $output->writeln('surname:     '.($card['surname'] ?: '-').($card['surnameSure'] ? ' (confirmed)' : ''));
-        $output->writeln('given names: '.($card['givenNames'] ?: '-').($card['givenSure'] ? ' (confirmed)' : ''));
+        $output->writeln('document:    '.$card['type']);
+        $output->writeln('surname:     '.($card['surname'] ?: '-'));
+        $output->writeln('given names: '.($card['givenNames'] ?: '-'));
+        $output->writeln('name:        '.(($card['nameSure'] ?? false) ? 'confirmed twice' : 'read once only'));
         $output->writeln('personal no: '.($card['cnpSure'] ? 'valid' : 'not read'));
+        $output->writeln('birth date:  '.($card['birthDate'] ?: '-'));
         $output->writeln('confidence:  '.$card['confidence']);
         $output->writeln(sprintf('read in %.1f s', microtime(true) - $start));
 

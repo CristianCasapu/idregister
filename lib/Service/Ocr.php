@@ -74,11 +74,11 @@ final class Ocr
      *
      * @param string $imageData raw bytes of the uploaded picture
      *
-     * @return array{surname:string, givenNames:string, cnp:string, surnameSure:bool, givenSure:bool, cnpSure:bool, confidence:float, lines:int}
+     * @return array{type:string, surname:string, givenNames:string, cnp:string, cnpSure:bool, birthDate:string, confidence:float, lines:int}
      *
      * @throws \RuntimeException when the picture cannot be read at all
      */
-    public function readIdCard(string $imageData): array
+    public function readDocument(string $imageData): array
     {
         $binary = self::binary();
         if ('' === $binary) {
@@ -98,7 +98,7 @@ final class Ocr
                     $this->tesseract($binary, $prepared, ['--psm', '11', '-l', self::LANGS]),
                     $this->tesseract($binary, $prepared, ['--psm', '6', '-l', 'eng', '-c', 'tessedit_char_whitelist='.self::MRZ_WHITELIST]),
                 );
-                $result = IdCardParser::parse($lines);
+                $result = DocumentReader::parse($lines);
                 $result['lines'] = \count($lines);
                 if (null === $best || $result['confidence'] > $best['confidence']) {
                     $best = $result;
@@ -117,6 +117,16 @@ final class Ocr
             // and getTemporaryFile registers it for removal here)
             $this->tempManager->clean();
         }
+    }
+
+    /**
+     * @deprecated use readDocument(); kept so older callers keep working
+     *
+     * @return array{type:string, surname:string, givenNames:string, cnp:string, cnpSure:bool, birthDate:string, confidence:float, lines:int}
+     */
+    public function readIdCard(string $imageData): array
+    {
+        return $this->readDocument($imageData);
     }
 
     /**
