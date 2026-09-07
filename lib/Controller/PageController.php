@@ -36,7 +36,7 @@ class PageController extends Controller
     #[NoCSRFRequired]
     public function index(): TemplateResponse
     {
-        $this->initialState->provideInitialState('enabled', (bool) $this->settings->get('enabled'));
+        $this->initialState->provideInitialState('registrationOpen', (bool) $this->settings->get('registrationOpen'));
         $this->initialState->provideInitialState('requireApproval', (bool) $this->settings->get('requireApproval'));
         $this->initialState->provideInitialState('ocr', Ocr::status()['ok']);
         $this->initialState->provideInitialState('loginUrl', $this->urlGenerator->linkToRouteAbsolute('core.login.showLoginForm'));

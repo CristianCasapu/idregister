@@ -59,7 +59,7 @@ final class Registration
      */
     public function start(array $card, string $email, string $phone, string $password, string $language): array
     {
-        if (!$this->settings->get('enabled')) {
+        if (!$this->settings->get('registrationOpen')) {
             throw new \InvalidArgumentException($this->l->t('Registration is currently closed.'));
         }
         $surname = trim($card['surname']);
@@ -122,9 +122,18 @@ final class Registration
         $pending->setStatus(PendingRegistration::STATUS_PENDING);
         $pending->setCreatedAt($now);
         $pending->setExpiresAt($now + max(1, (int) $this->settings->get('expiryHours')) * 3600);
-        $this->mapper->insert($pending);
+        $pending = $this->mapper->insert($pending);
 
-        $this->sendVerificationMail($pending, $language);
+        try {
+            $this->sendVerificationMail($pending, $language);
+        } catch (\Throwable $e) {
+            // no confirmation e-mail means no way in: undo everything instead of leaving a dead account
+            $this->logger->error('idregister: the confirmation e-mail could not be sent to '.$email, ['exception' => $e]);
+            $this->mapper->delete($pending);
+            $user->delete();
+
+            throw new \InvalidArgumentException($this->l->t('The confirmation e-mail could not be sent. Please check the address, or try again later.'));
+        }
         $this->logger->info('idregister: registration started for '.$uid.' ('.$email.')');
 
         return ['token' => $pending->getToken(), 'email' => $email, 'uid' => $uid];
@@ -331,7 +340,11 @@ final class Registration
         $message = $this->mailer->createMessage();
         $message->setTo([$pending->getEmail() => $name]);
         $message->useTemplate($template);
-        $this->mailer->send($message);
+        // send() does not throw: it returns the addresses it could not reach
+        $failed = $this->mailer->send($message);
+        if (\count($failed) > 0) {
+            throw new \RuntimeException('the mail server refused '.implode(', ', $failed));
+        }
     }
 
     private function notifyAdmins(PendingRegistration $pending): void

@@ -28,7 +28,7 @@ final class TesseractCheck implements ISetupCheck
     public function run(): SetupResult
     {
         $status = Ocr::status();
-        if (!$this->settings->get('enabled')) {
+        if (!$this->settings->get('registrationOpen')) {
             return SetupResult::success($this->l->t('Registration with an identity card is switched off.'));
         }
         if ('' === $status['version']) {

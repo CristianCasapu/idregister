@@ -14,7 +14,7 @@ use OCP\Security\ISecureRandom;
 final class Settings
 {
     public const DEFAULTS = [
-        'enabled' => false,
+        'registrationOpen' => false,
         'requireApproval' => false,
         'defaultGroup' => '',
         'quota' => '',

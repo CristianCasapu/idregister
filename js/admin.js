@@ -73,7 +73,7 @@
 			+ '<h2>' + esc(t('ID card registration')) + '</h2>'
 			+ '<p class="muted">' + esc(t('Visitors register themselves with a photo of their identity card and a verified e-mail address. The picture and the personal number are never stored.')) + '</p>'
 			+ '<p class="muted">' + esc(ocrLine) + '</p>'
-			+ '<div class="idreg-admin-row"><label><input type="checkbox" id="cfg-enabled"' + (config.enabled ? ' checked' : '') + '> ' + esc(t('Allow registration with an identity card')) + '</label></div>'
+			+ '<div class="idreg-admin-row"><label><input type="checkbox" id="cfg-open"' + (config.registrationOpen ? ' checked' : '') + '> ' + esc(t('Allow registration with an identity card')) + '</label></div>'
 			+ '<div class="idreg-admin-row"><label><input type="checkbox" id="cfg-approval"' + (config.requireApproval ? ' checked' : '') + '> ' + esc(t('An administrator has to approve every new account')) + '</label></div>'
 			+ '<div class="idreg-admin-row"><label><input type="checkbox" id="cfg-onecard"' + (config.oneAccountPerCard ? ' checked' : '') + '> ' + esc(t('One account per identity card')) + '</label></div>'
 			+ '<div class="idreg-admin-row"><label>' + esc(t('Add new users to the group')) + ' <select id="cfg-group"><option value="">' + esc(t('(none)')) + '</option>'
@@ -90,7 +90,7 @@
 				? '<table><thead><tr><th>' + esc(t('Person')) + '</th><th>' + esc(t('Contact')) + '</th><th>' + esc(t('Status')) + '</th><th>' + esc(t('Started')) + '</th><th></th></tr></thead><tbody>' + rows + '</tbody></table>'
 				: '<p class="muted">' + esc(t('Nobody has registered yet.')) + '</p>');
 
-		document.getElementById('cfg-enabled').addEventListener('change', function (e) { save({ enabled: e.target.checked }); });
+		document.getElementById('cfg-open').addEventListener('change', function (e) { save({ registrationOpen: e.target.checked }); });
 		document.getElementById('cfg-approval').addEventListener('change', function (e) { save({ requireApproval: e.target.checked }); });
 		document.getElementById('cfg-onecard').addEventListener('change', function (e) { save({ oneAccountPerCard: e.target.checked }); });
 		document.getElementById('cfg-group').addEventListener('change', function (e) { save({ defaultGroup: e.target.value }); });

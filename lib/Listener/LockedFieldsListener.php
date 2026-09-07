@@ -36,8 +36,9 @@ final class LockedFieldsListener implements IEventListener
         if (!$event instanceof UserChangedEvent || self::$restoring) {
             return;
         }
+        // Nextcloud calls them "displayName" and "eMailAddress"
         $feature = $event->getFeature();
-        if (!\in_array($feature, ['displayName', 'eMail'], true)) {
+        if (!\in_array($feature, ['displayName', 'eMailAddress'], true)) {
             return;
         }
         $user = $event->getUser();

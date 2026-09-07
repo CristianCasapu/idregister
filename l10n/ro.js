@@ -50,6 +50,7 @@ OC.L10N.register(
     "The picture could not be read.": "Poza nu a putut fi citită.",
     "The identity card could not be read. Try again with more light and the whole card in the frame.": "Cartea de identitate nu a putut fi citită. Încearcă din nou, cu mai multă lumină și cu tot actul în cadru.",
     "Please accept how your data is used.": "Te rugăm să accepți modul în care îți sunt folosite datele.",
+    "The confirmation e-mail could not be sent. Please check the address, or try again later.": "E-mailul de confirmare nu a putut fi trimis. Verifică adresa sau încearcă mai târziu.",
     "Something went wrong. Please try again.": "Ceva nu a mers. Încearcă din nou.",
     "ID card registration: text recognition": "Înregistrare cu buletinul: recunoașterea textului",
     "Registration with an identity card is switched off.": "Înregistrarea cu cartea de identitate este oprită.",

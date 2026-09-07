@@ -44,7 +44,7 @@ class ApiController extends Controller
     #[AnonRateLimit(limit: 10, period: 3600)]
     public function scan(): JSONResponse
     {
-        if (!$this->settings->get('enabled')) {
+        if (!$this->settings->get('registrationOpen')) {
             return $this->error($this->l->t('Registration is currently closed.'));
         }
         $file = $this->request->getUploadedFile('image');

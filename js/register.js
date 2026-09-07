@@ -17,7 +17,7 @@
 		} catch (e) { return fallback; }
 	};
 
-	var enabled = initial('enabled', false);
+	var enabled = initial('registrationOpen', false);
 	var ocrReady = initial('ocr', false);
 	var requireApproval = initial('requireApproval', false);
 	var loginUrl = initial('loginUrl', '/login');
