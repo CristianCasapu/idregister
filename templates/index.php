@@ -20,6 +20,7 @@ declare(strict_types=1);
 		</div>
 
 		<div class="idreg-message" id="idreg-message" role="alert" hidden></div>
+		<div class="idreg-net" id="idreg-net" role="status" aria-live="polite" hidden><span class="idreg-net-dot" aria-hidden="true"></span><span id="idreg-net-text"></span></div>
 
 		<!-- 0: on a computer, hand over to a phone -->
 		<section class="idreg-step" data-step="0" hidden>

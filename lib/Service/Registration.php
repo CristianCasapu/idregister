@@ -7,6 +7,7 @@ namespace OCA\IdRegister\Service;
 use OCA\IdRegister\AppInfo\Application;
 use OCA\IdRegister\Db\PendingRegistration;
 use OCA\IdRegister\Db\PendingRegistrationMapper;
+use OCA\IdRegister\Service\Exception\AlreadyRegisteredException;
 use OCP\Accounts\IAccountManager;
 use OCP\AppFramework\Db\DoesNotExistException;
 use OCP\AppFramework\Utility\ITimeFactory;
@@ -155,7 +156,7 @@ final class Registration
             $cnpHash = hash('sha256', mb_strtolower($surname.'|'.$given.'|'.$card['birthDate']).$this->settings->cnpSecret());
         }
         if ('' !== $cnpHash && $this->settings->get('oneAccountPerCard') && null !== $this->mapper->findByCnpHash($cnpHash)) {
-            throw new \InvalidArgumentException($this->l->t('An account was already created with this identity card.'));
+            throw new AlreadyRegisteredException($this->l->t('An account was already created with this identity card.'));
         }
 
         return $cnpHash;

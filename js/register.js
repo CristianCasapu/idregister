@@ -28,6 +28,46 @@
 	var mobileOnly = initial('mobileOnly', true);
 	var handoff = initial('handoff', '');
 	var appUrl = initial('appUrl', '');
+
+	/* ---- the connection to the server, watched in a corner: the browser's own online flag plus a
+	 * small request every 15 s (sooner after a failure); every failed request of ours marks it down. */
+	var net = { state: '', timer: null, failures: 0 };
+	function netShow(state, text) {
+		var box = $('idreg-net');
+		if (!box) { return; }
+		net.state = state;
+		box.className = 'idreg-net ' + state;
+		$('idreg-net-text').textContent = text;
+		box.hidden = false;
+	}
+	function netCheck() {
+		if (net.timer) { window.clearTimeout(net.timer); net.timer = null; }
+		if (navigator.onLine === false) {
+			netShow('down', t('No internet connection'));
+			net.timer = window.setTimeout(netCheck, 5000);
+			return;
+		}
+		var started = Date.now();
+		var controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
+		var killer = controller ? window.setTimeout(function () { controller.abort(); }, 8000) : null;
+		fetch(url('/api/ping'), { cache: 'no-store', signal: controller ? controller.signal : undefined })
+			.then(function (r) {
+				var ms = Date.now() - started;
+				if (!r.ok && r.status !== 404) { throw new Error('http ' + r.status); }
+				net.failures = 0;
+				if (ms > 2500) { netShow('slow', t('Slow connection ({ms} ms)', { ms: ms })); }
+				else { netShow('ok', t('Connected')); }
+				net.timer = window.setTimeout(netCheck, 15000);
+			}).catch(function () {
+				net.failures += 1;
+				netShow('down', t('The server does not answer'));
+				net.timer = window.setTimeout(netCheck, 4000);
+			}).then(function () { if (killer) { window.clearTimeout(killer); } });
+	}
+	function netFailed() { net.failures += 1; netShow('down', t('The server does not answer')); if (!net.timer) { net.timer = window.setTimeout(netCheck, 3000); } }
+	window.addEventListener('online', netCheck);
+	window.addEventListener('offline', netCheck);
+	window.setTimeout(netCheck, 500);
 	// the phone app finished: this browser signs in as the new account (see followHandoff)
 	var takeOver = /[?&]take=1/.test(window.location.search) && '' !== handoff;
 	var struggles = 0;
@@ -139,8 +179,9 @@
 		return fetch(url(path), { method: 'POST', headers: headers, body: isForm ? body : JSON.stringify(body) })
 			.then(function (r) {
 				if (r.status === 429) { return { ok: false, message: t('Too many attempts from this connection. Please wait a while and try again.') }; }
+				if (net.state !== 'ok') { netShow('ok', t('Connected')); }
 				return r.json();
-			});
+			}, function (e) { netFailed(); throw e; });
 	}
 
 	/**
@@ -446,7 +487,8 @@
 					}
 				});
 		}).catch(function () {
-			// a lost frame is not an error: the next one follows
+			// a lost frame is not an error: the next one follows — but the corner says so
+			netFailed();
 		}).then(function () { cam.sending = false; });
 	}
 
@@ -600,9 +642,21 @@
 		post('/api/express', { scanId: state.scanId, handoff: handoff, terms: true }).then(function (data) {
 			busy(false);
 			if (!data.ok) {
-				// the camera may still fill the screen (after the selfie): say it there too
+				stopSelfieCamera();
+				if (data.existing || data.closed) {
+					// an account already, or no room for a new one: the sign-in page is the way
+					var where = data.loginUrl || loginUrl;
+					message((data.message || '') + ' ' + (data.existing ? t('Taking you to the sign-in page …') : ''), 'error');
+					var link = document.createElement('a');
+					link.href = where;
+					link.textContent = t('Go to the sign-in page');
+					link.className = 'idreg-message-link';
+					$('idreg-message').appendChild(document.createTextNode(' '));
+					$('idreg-message').appendChild(link);
+					if (data.existing) { window.setTimeout(function () { window.location.href = where; }, 3000); }
+					return;
+				}
 				message(data.message, 'error');
-				if (selfie && selfie.running) { selfie.status.textContent = data.message || ''; }
 				return;
 			}
 			showCreated(data);

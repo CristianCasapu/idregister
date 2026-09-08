@@ -7,6 +7,7 @@ namespace OCA\IdRegister\Controller;
 use OCA\IdRegister\AppInfo\Application;
 use OCA\IdRegister\Db\PendingRegistration;
 use OCA\IdRegister\Service\Device;
+use OCA\IdRegister\Service\Exception\AlreadyRegisteredException;
 use OCA\IdRegister\Service\DocumentReader;
 use OCA\IdRegister\Service\FaceMatch;
 use OCA\IdRegister\Service\Liveness;
@@ -53,6 +54,7 @@ class ApiController extends Controller
         private ISecureRandom $random,
         private IL10N $l,
         private LoggerInterface $logger,
+        private \OCP\IURLGenerator $urlGenerator,
     ) {
         parent::__construct(Application::APP_ID, $request);
     }
@@ -487,8 +489,11 @@ class ApiController extends Controller
             }
 
             return new JSONResponse(['ok' => true] + $result, Http::STATUS_OK);
+        } catch (AlreadyRegisteredException $e) {
+            // they have an account: the page sends them to sign in instead of keeping them here
+            return new JSONResponse(['ok' => false, 'existing' => true, 'message' => $e->getMessage(), 'loginUrl' => $this->urlGenerator->linkToRouteAbsolute('core.login.showLoginForm')], Http::STATUS_OK);
         } catch (\InvalidArgumentException $e) {
-            return $this->error($e->getMessage());
+            return new JSONResponse(['ok' => false, 'closed' => true, 'message' => $e->getMessage(), 'loginUrl' => $this->urlGenerator->linkToRouteAbsolute('core.login.showLoginForm')], Http::STATUS_OK);
         } catch (\Throwable $e) {
             $this->logger->error('idregister: express registration failed', ['exception' => $e]);
 
@@ -549,6 +554,14 @@ class ApiController extends Controller
 
             return $this->error($this->l->t('Something went wrong. Please try again.'));
         }
+    }
+
+    /** Is the server reachable? (the corner indicator of the page and of the app) */
+    #[PublicPage]
+    #[NoCSRFRequired]
+    public function ping(): JSONResponse
+    {
+        return new JSONResponse(['ok' => true, 'time' => time()], Http::STATUS_OK);
     }
 
     /** The desktop asks for a handoff and shows its link as a QR code. */

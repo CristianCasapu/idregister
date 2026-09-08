@@ -1,6 +1,12 @@
 OC.L10N.register(
     "idregister",
     {
+    "Taking you to the sign-in page …": "Te duc la pagina de autentificare …",
+    "Go to the sign-in page": "Mergi la pagina de autentificare",
+    "No internet connection": "Fără conexiune la internet",
+    "Slow connection ({ms} ms)": "Conexiune lentă ({ms} ms)",
+    "Connected": "Conectat",
+    "The server does not answer": "Serverul nu răspunde",
     "Install the registration app": "Instalează aplicația de înregistrare",
     "Does it not work in the browser?": "Nu merge din browser?",
     "Finishing your registration …": "Finalizez înregistrarea …",

@@ -262,7 +262,13 @@
         "Finishing your registration …": "Finalizez înregistrarea …",
         "The chip gave no name.": "Cipul nu a dat niciun nume.",
         "This identity card has expired.": "Această carte de identitate a expirat.",
-        "Android app (suggested when the scan in the browser struggles; empty = never)": "Aplicația Android (sugerată când scanarea din browser nu reușește; gol = niciodată)"
+        "Android app (suggested when the scan in the browser struggles; empty = never)": "Aplicația Android (sugerată când scanarea din browser nu reușește; gol = niciodată)",
+        "No internet connection": "Fără conexiune la internet",
+        "Slow connection ({ms} ms)": "Conexiune lentă ({ms} ms)",
+        "Connected": "Conectat",
+        "The server does not answer": "Serverul nu răspunde",
+        "Taking you to the sign-in page …": "Te duc la pagina de autentificare …",
+        "Go to the sign-in page": "Mergi la pagina de autentificare"
     },
     "pluralForm": "nplurals=3; plural=(n==1?0:(((n%100>19)||((n%100==0)&&(n!=0)))?2:1));"
 }

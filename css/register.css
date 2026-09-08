@@ -618,3 +618,28 @@ html.idreg-cam-open .idreg-spinner {
 	padding: 10px 12px;
 	border-radius: 8px;
 }
+
+/* the connection to the server, in a corner: green / amber (slow) / red (down) */
+.idreg-net {
+	position: fixed;
+	left: 10px;
+	bottom: max(10px, env(safe-area-inset-bottom));
+	z-index: 10002;
+	display: flex;
+	align-items: center;
+	gap: 7px;
+	padding: 5px 10px;
+	border-radius: 999px;
+	background: rgba(0, 0, 0, 0.7);
+	color: #fff;
+	font-size: 0.8rem;
+	line-height: 1.2;
+	pointer-events: none;
+}
+.idreg-net-dot { width: 9px; height: 9px; border-radius: 50%; background: #43a047; box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.25); }
+.idreg-net.slow .idreg-net-dot { background: #ffb300; }
+.idreg-net.down .idreg-net-dot { background: #e53935; animation: idreg-blink 1s steps(2, start) infinite; }
+.idreg-net.ok { opacity: 0.75; }
+@keyframes idreg-blink { to { visibility: hidden; } }
+html.idreg-cam-open .idreg-net { bottom: calc(max(16px, env(safe-area-inset-bottom)) + 62px); left: 12px; }
+.idreg-message-link { color: #fff; text-decoration: underline; font-weight: 600; }

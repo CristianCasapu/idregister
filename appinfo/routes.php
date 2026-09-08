@@ -15,6 +15,7 @@ return [
         ['name' => 'api#selfie', 'url' => '/api/selfie', 'verb' => 'POST'],
         ['name' => 'api#chip', 'url' => '/api/chip', 'verb' => 'POST'],
         ['name' => 'api#finish', 'url' => '/api/finish', 'verb' => 'POST'],
+        ['name' => 'api#ping', 'url' => '/api/ping', 'verb' => 'GET'],
         ['name' => 'api#handoffCreate', 'url' => '/api/handoff', 'verb' => 'POST'],
         ['name' => 'api#handoffStatus', 'url' => '/api/handoff/{token}', 'verb' => 'GET'],
         ['name' => 'api#express', 'url' => '/api/express', 'verb' => 'POST'],
