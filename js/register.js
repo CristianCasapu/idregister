@@ -676,7 +676,7 @@
 	$('idreg-login-form').addEventListener('submit', prepareLogin);
 
 	/* ---- step 3: the selfie, with the front camera and a face-shaped guide ---- */
-	var selfie = { video: $('idreg-selfie-video'), overlay: $('idreg-selfie-overlay'), box: $('idreg-selfie-cam'), status: $('idreg-selfie-status'), stream: null, running: false, timer: null };
+	var selfie = { video: $('idreg-selfie-video'), overlay: $('idreg-selfie-overlay'), box: $('idreg-selfie-cam'), status: $('idreg-selfie-status'), stream: null, running: false, timer: null, level: 0, face: null, good: 0, guiding: false, taking: false };
 
 	function ovalRect(w, h) {
 		var rw = w * 0.62, rh = rw * 1.3;
@@ -700,13 +700,67 @@
 		ctx.rect(0, 0, w, h);
 		ctx.ellipse(o.cx, o.cy, o.rx, o.ry, 0, 0, Math.PI * 2, true);
 		ctx.fill('evenodd');
-		ctx.strokeStyle = '#ffffff';
-		ctx.lineWidth = 3;
-		ctx.setLineDash([10, 8]);
+		ctx.strokeStyle = selfie.level === 2 ? '#43a047' : (selfie.level === 1 ? '#ffb300' : '#ffffff');
+		ctx.lineWidth = selfie.level === 2 ? 5 : 3;
+		ctx.setLineDash(selfie.level === 2 ? [] : [10, 8]);
 		ctx.beginPath();
 		ctx.ellipse(o.cx, o.cy, o.rx, o.ry, 0, 0, Math.PI * 2);
 		ctx.stroke();
 		ctx.setLineDash([]);
+	}
+
+	/** the area the page sends around the oval (and later the selfie itself), in pixels of the camera image */
+	function selfieCropRect() {
+		var v = selfie.video;
+		var vw = v.clientWidth, vh = v.clientHeight, iw = v.videoWidth, ih = v.videoHeight;
+		var sc = Math.max(vw / iw, vh / ih);
+		var dx = (vw - iw * sc) / 2, dy = (vh - ih * sc) / 2;
+		var o = ovalRect(vw, vh);
+		var l = Math.max(0, (o.cx - o.rx * 1.35 - dx) / sc), tp = Math.max(0, (o.cy - o.ry * 1.25 - dy) / sc);
+		var r = Math.min(iw, (o.cx + o.rx * 1.35 - dx) / sc), b = Math.min(ih, (o.cy + o.ry * 1.25 - dy) / sc);
+		return { l: l, t: tp, w: r - l, h: b - tp };
+	}
+
+	/** A small frame to the server: where the face is, what to do; two good frames in a row take the selfie. */
+	function selfieGuideTick() {
+		if (!selfie.running || selfie.guiding || selfie.taking || !selfie.video.videoWidth || !state.scanId) { return; }
+		selfie.guiding = true;
+		var c = selfieCropRect();
+		var canvas = document.createElement('canvas');
+		var scale = Math.min(1, 360 / c.w);
+		canvas.width = Math.max(2, Math.round(c.w * scale));
+		canvas.height = Math.max(2, Math.round(c.h * scale));
+		canvas.getContext('2d').drawImage(selfie.video, c.l, c.t, c.w, c.h, 0, 0, canvas.width, canvas.height);
+		new Promise(function (resolve) { canvas.toBlob(resolve, 'image/jpeg', 0.7); }).then(function (blob) {
+			if (!blob || !selfie.running) { return; }
+			var form = new FormData();
+			form.append('frame', blob, 'guide.jpg');
+			form.append('scanId', state.scanId);
+			return fetch(url('/api/selfie/guide'), { method: 'POST', headers: { requesttoken: (typeof OC !== 'undefined' && OC.requestToken) || '' }, body: form })
+				.then(function (r) { return r.json(); })
+				.then(function (data) {
+					if (!selfie.running || selfie.taking) { return; }
+					if (data.fatal) { stopSelfieCamera(); message(data.message, 'error'); return; }
+					if (!data.ok) { return; }
+					selfie.level = data.level || 0;
+					selfie.face = data.face || null;
+					selfie.status.textContent = data.status || '';
+					selfie.good = data.good ? selfie.good + 1 : 0;
+					if (selfie.good >= 2) { autoSelfie(); }
+				});
+		}).catch(function () { netFailed(); }).then(function () { selfie.guiding = false; });
+	}
+
+	function autoSelfie() {
+		if (selfie.taking || !selfie.running) { return; }
+		selfie.taking = true;
+		selfie.status.textContent = t('Comparing with the photo on the document …');
+		grabSelfie().then(function (blob) {
+			if (!blob) { selfie.taking = false; return; }
+			return checkSelfie(blob).then(function (ok) {
+				if (!ok && selfie.running) { selfie.good = 0; selfie.taking = false; }
+			});
+		}).catch(function () { selfie.taking = false; });
 	}
 
 	function stopSelfieCamera() {
@@ -747,8 +801,12 @@
 				if (!selfie.running) { return; }
 				selfie.status.textContent = t('Put your face inside the oval');
 				$('idreg-take-selfie').disabled = false;
+				selfie.level = 0;
+				selfie.good = 0;
+				selfie.taking = false;
 				drawSelfieOverlay();
-				selfie.timer = window.setInterval(drawSelfieOverlay, 500);
+				// the guidance: a small frame every 600 ms, the selfie taken by itself once the face sits right
+				selfie.timer = window.setInterval(function () { drawSelfieOverlay(); selfieGuideTick(); }, 600);
 			}).catch(function (e) {
 				console.warn('selfie camera', e);
 				selfie.running = false;

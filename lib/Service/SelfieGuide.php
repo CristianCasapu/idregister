@@ -1,0 +1,99 @@
+<?php
+
+declare(strict_types=1);
+
+namespace OCA\IdRegister\Service;
+
+use OCP\IL10N;
+use OCP\ITempManager;
+use Psr\Log\LoggerInterface;
+use Symfony\Component\Process\Process;
+
+/**
+ * The automatic selfie: a small frame comes in every half second, the face is found on it and
+ * the visitor is told what to do (come closer, move back, centre the face, hold still). Once a
+ * frame is "good", the page or the app takes the real selfie by itself. The frame is dropped
+ * right after; nothing is kept.
+ *
+ * The frame is the area around the oval as the page cuts it (1.35 × the oval horizontally,
+ * 1.25 × vertically), so the oval sits at a known place in it.
+ */
+final class SelfieGuide
+{
+    private const TIMEOUT = 20;
+    /** the oval inside the frame, relative to its width/height */
+    private const OVAL_CX = 0.5;
+    private const OVAL_CY = 0.5;
+    private const OVAL_RX = 0.5 / 1.35;
+    private const OVAL_RY = 0.5 / 1.25;
+
+    public function __construct(
+        private FaceMatch $faceMatch,
+        private ITempManager $tempManager,
+        private IL10N $l,
+        private LoggerInterface $logger,
+    ) {}
+
+    /**
+     * @return array{status:string, level:int, good:bool, face:?array{x:float,y:float,w:float,h:float}}
+     */
+    public function guide(string $jpeg): array
+    {
+        $face = $this->largestFace($jpeg);
+        if (null === $face) {
+            return ['status' => $this->l->t('Put your face inside the oval'), 'level' => 0, 'good' => false, 'face' => null];
+        }
+        $cx = $face['x'] + $face['w'] / 2;
+        $cy = $face['y'] + $face['h'] / 2;
+        $off = sqrt((($cx - self::OVAL_CX) / self::OVAL_RX) ** 2 + (($cy - self::OVAL_CY) / self::OVAL_RY) ** 2);
+        // the cascade's box is brows-to-chin: about 0.6 of the oval's width when the head fills it
+        $size = $face['w'] / (2 * self::OVAL_RX);
+        if ($size < 0.42) {
+            return ['status' => $this->l->t('Come closer'), 'level' => 1, 'good' => false, 'face' => $face];
+        }
+        if ($size > 0.95) {
+            return ['status' => $this->l->t('Move back a little'), 'level' => 1, 'good' => false, 'face' => $face];
+        }
+        if ($off > 0.45) {
+            return ['status' => $this->l->t('Centre your face in the oval'), 'level' => 1, 'good' => false, 'face' => $face];
+        }
+
+        return ['status' => $this->l->t('Hold still …'), 'level' => 2, 'good' => true, 'face' => $face];
+    }
+
+    /** @return null|array{x:float,y:float,w:float,h:float} */
+    private function largestFace(string $jpeg): ?array
+    {
+        $file = $this->tempManager->getTemporaryFile('.jpg');
+        if (false === $file) {
+            return null;
+        }
+        file_put_contents($file, $jpeg);
+
+        try {
+            $process = new Process(
+                [$this->faceMatch->pythonBinary(), \dirname(__DIR__, 2).'/src/face_guide.py', $file],
+                \dirname(__DIR__, 2),
+                ['TMPDIR' => (string) $this->tempManager->getTempBaseDir(), 'OMP_NUM_THREADS' => '1'],
+            );
+            $process->setTimeout(self::TIMEOUT);
+            $process->run();
+            if (!$process->isSuccessful()) {
+                $this->logger->warning('idregister: the face guide failed: '.trim($process->getErrorOutput()));
+
+                return null;
+            }
+            $out = json_decode(trim($process->getOutput()), true);
+            $faces = \is_array($out) && \is_array($out['faces'] ?? null) ? $out['faces'] : [];
+            if (0 === \count($faces)) {
+                return null;
+            }
+            $f = $faces[0];
+
+            return ['x' => (float) $f['x'], 'y' => (float) $f['y'], 'w' => (float) $f['w'], 'h' => (float) $f['h']];
+        } finally {
+            @unlink($file);
+            $this->tempManager->clean();
+        }
+    }
+}

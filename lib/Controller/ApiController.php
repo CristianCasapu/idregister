@@ -16,6 +16,7 @@ use OCA\IdRegister\Service\Handoff;
 use OCA\IdRegister\Service\IdCardParser;
 use OCA\IdRegister\Service\Ocr;
 use OCA\IdRegister\Service\Registration;
+use OCA\IdRegister\Service\SelfieGuide;
 use OCA\IdRegister\Service\Settings;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http;
@@ -55,6 +56,7 @@ class ApiController extends Controller
         private IL10N $l,
         private LoggerInterface $logger,
         private \OCP\IURLGenerator $urlGenerator,
+        private SelfieGuide $selfieGuide,
     ) {
         parent::__construct(Application::APP_ID, $request);
     }
@@ -345,6 +347,30 @@ class ApiController extends Controller
             'needsSelfie' => $needsSelfie && '' === (string) ($card['selfie'] ?? ''),
             'corrected' => $changed,
         ], Http::STATUS_OK);
+    }
+
+    /**
+     * The automatic selfie: where the face is in a small frame, and what to do (see SelfieGuide).
+     */
+    #[UseSession]
+    #[PublicPage]
+    #[AnonRateLimit(limit: 2000, period: 3600)]
+    public function selfieGuide(string $scanId = ''): JSONResponse
+    {
+        $card = $this->session->get(self::SESSION_PREFIX.$scanId);
+        if (!\is_array($card)) {
+            return $this->error($this->l->t('Please read your identity card again.'), true);
+        }
+        $file = $this->request->getUploadedFile('frame');
+        if (null === $file || !isset($file['tmp_name']) || !is_uploaded_file($file['tmp_name']) || ($file['size'] ?? 0) > 512 * 1024) {
+            return $this->error($this->l->t('No picture was received.'));
+        }
+        $data = (string) file_get_contents($file['tmp_name']);
+        @unlink($file['tmp_name']);
+        $guide = $this->selfieGuide->guide($data);
+        unset($data);
+
+        return new JSONResponse(['ok' => true] + $guide, Http::STATUS_OK);
     }
 
     /**

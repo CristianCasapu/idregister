@@ -13,6 +13,7 @@ return [
         ['name' => 'api#verifyCode', 'url' => '/api/verify', 'verb' => 'POST'],
         ['name' => 'api#resend', 'url' => '/api/resend', 'verb' => 'POST'],
         ['name' => 'api#selfie', 'url' => '/api/selfie', 'verb' => 'POST'],
+        ['name' => 'api#selfieGuide', 'url' => '/api/selfie/guide', 'verb' => 'POST'],
         ['name' => 'api#chip', 'url' => '/api/chip', 'verb' => 'POST'],
         ['name' => 'api#finish', 'url' => '/api/finish', 'verb' => 'POST'],
         ['name' => 'api#ping', 'url' => '/api/ping', 'verb' => 'GET'],

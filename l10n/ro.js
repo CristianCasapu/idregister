@@ -1,6 +1,10 @@
 OC.L10N.register(
     "idregister",
     {
+    "Come closer": "Apropie-te",
+    "Move back a little": "Depărtează-te puțin",
+    "Centre your face in the oval": "Centrează-ți fața în oval",
+    "Hold still …": "Ține nemișcat …",
     "Taking you to the sign-in page …": "Te duc la pagina de autentificare …",
     "Go to the sign-in page": "Mergi la pagina de autentificare",
     "No internet connection": "Fără conexiune la internet",
