@@ -440,8 +440,11 @@ final class Ocr
             }
 
             $parsed = IdCardParser::parse($lines);
-            if ('' !== $binary && (!$parsed['cnpSure'] || '' === $parsed['surname'] || '' === $parsed['givenNames'])) {
-                // the machine readable zone (old card), enlarged and restricted to its alphabet
+            // The machine readable zone (old card) read once more, enlarged and restricted to its
+            // alphabet — only when there is one and it did not read well; the new electronic card
+            // has none on its front, and the extra pass would cost a second on every frame.
+            $hasMrz = null === $rapid || \count(array_filter($lines, static fn ($l) => str_contains($l, '<<') || str_contains(strtoupper($l), 'IDROU'))) > 0;
+            if ('' !== $binary && $hasMrz && (!$parsed['cnpSure'] || '' === $parsed['surname'] || '' === $parsed['givenNames'])) {
                 $prepared ??= $this->prepare($imageData, 0, self::FRAME_MIN_PX);
                 [$pw, $ph] = null !== $prepared ? self::sizeOf($prepared) : [0, 0];
                 $mrz = null !== $prepared ? $this->cropBottom($prepared, $pw, $ph, 0.36, 2.0) : null;
