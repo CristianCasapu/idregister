@@ -299,9 +299,19 @@
 		}
 	}
 
+	/** the camera box in front of everything while it runs */
+	function camLive(box, on) {
+		box.classList.toggle('live', on);
+		box.classList.toggle('tilt', false);
+		var anyLive = document.querySelector('.idreg-cam.live');
+		document.documentElement.classList.toggle('idreg-cam-open', !!anyLive);
+		if (on) { window.setTimeout(function () { window.dispatchEvent(new Event('resize')); }, 50); }
+	}
+
 	function stopCamera() {
 		if (!cam) { return; } // the desktop hand-off shows the QR before the camera objects exist
 		cam.running = false;
+		camLive(cam.box, false);
 		if (cam.stream) {
 			cam.stream.getTracks().forEach(function (tr) { tr.stop(); });
 			cam.stream = null;
@@ -343,6 +353,13 @@
 					cam.boxes = data.boxes || [];
 					cam.lines = data.lines || 0;
 					if (data.status) { setStatus(data.status, data.level || 0); }
+					cam.box.classList.toggle('tilt', !!data.tilt);
+					if (data.blocked) {
+						// a copy or a screen: keep looking, the real card may come next
+						cam.first = true;
+						$('idreg-use').disabled = true;
+						return;
+					}
 					$('idreg-use').disabled = !(cam.lines >= 3 || data.frames > 0);
 					if (data.done) {
 						if (data.ok) {
@@ -389,6 +406,7 @@
 		$('idreg-photo').hidden = true;
 		$('idreg-photo-link').parentNode.hidden = false;
 		cam.running = true;
+		camLive(cam.box, true);
 		cam.first = true;
 		cam.boxes = [];
 		cam.lines = 0;
@@ -439,8 +457,15 @@
 		stopCamera();
 		showPhotoFallback(t('Photograph the document'));
 	});
+	$('idreg-cam-close').addEventListener('click', function () {
+		stopCamera();
+		showPhotoFallback(t('Photograph the document'));
+	});
 
-	window.addEventListener('resize', function () { if (cam.running) { drawOverlay(); } });
+	window.addEventListener('resize', function () {
+		if (cam.running) { drawOverlay(); }
+		if (typeof selfie !== 'undefined' && selfie && selfie.running) { drawSelfieOverlay(); }
+	});
 	window.addEventListener('pagehide', stopCamera);
 
 	/* ---- step 1 (fallback): a picture of the document ---- */
@@ -578,6 +603,7 @@
 	function stopSelfieCamera() {
 		if (!selfie) { return; }
 		selfie.running = false;
+		camLive(selfie.box, false);
 		if (selfie.timer) { window.clearInterval(selfie.timer); selfie.timer = null; }
 		if (selfie.stream) {
 			selfie.stream.getTracks().forEach(function (tr) { tr.stop(); });
@@ -600,6 +626,7 @@
 		$('idreg-selfie-photo-link').parentNode.hidden = false;
 		$('idreg-take-selfie').disabled = true;
 		selfie.running = true;
+		camLive(selfie.box, true);
 		selfie.status.textContent = t('Starting the camera …');
 		navigator.mediaDevices.getUserMedia({ audio: false, video: { facingMode: { ideal: 'user' }, width: { ideal: 1280 }, height: { ideal: 1280 } } })
 			.then(function (stream) {
@@ -655,6 +682,12 @@
 			return false;
 		});
 	}
+
+	$('idreg-selfie-close').addEventListener('click', function () {
+		stopSelfieCamera();
+		showSelfieFallback(t('Take a selfie'));
+	});
+	$('idreg-selfie-back').addEventListener('click', function () { $('idreg-back-selfie').click(); });
 
 	$('idreg-take-selfie').addEventListener('click', function () {
 		if (!selfie.running || !selfie.video.videoWidth) { return; }

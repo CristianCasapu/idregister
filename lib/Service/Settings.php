@@ -45,6 +45,7 @@ final class Settings
         'notifyAdmins' => false,
         // the selfie has to show the person on the document
         'requireSelfie' => true,
+        'requirePhysical' => true, // refuse copies and screens; ask for a tilt when unsure
         // measured on a real library: same person 0.43–1.13, different people 1.27–1.49
         'selfieMatchDistance' => 1.15,
         'selfieReviewDistance' => 1.30,

@@ -8,6 +8,7 @@ use OCA\IdRegister\AppInfo\Application;
 use OCA\IdRegister\Service\Device;
 use OCA\IdRegister\Service\DocumentReader;
 use OCA\IdRegister\Service\FaceMatch;
+use OCA\IdRegister\Service\Liveness;
 use OCA\IdRegister\Service\LiveScan;
 use OCA\IdRegister\Service\Handoff;
 use OCA\IdRegister\Service\IdCardParser;
@@ -89,6 +90,15 @@ class ApiController extends Controller
 
             return $this->error($this->l->t('The identity card could not be read. Try again with more light and the whole card in the frame.'));
         }
+        // a single picture: a copy or a screen is refused; anything else goes to an administrator
+        $card['liveness'] = Liveness::single($card['live'] ?? null);
+        unset($card['live']);
+        if ((bool) $this->settings->get('requirePhysical') && Liveness::VERDICT_MONO === $card['liveness']) {
+            return $this->error($this->l->t('This looks like a black-and-white copy. Please use the physical document.'));
+        }
+        if ((bool) $this->settings->get('requirePhysical') && Liveness::VERDICT_SCREEN === $card['liveness']) {
+            return $this->error($this->l->t('This looks like a picture on a screen. Please use the physical document.'));
+        }
 
         return new JSONResponse($this->acceptDocument($card, $data, $handoff), Http::STATUS_OK);
     }
@@ -128,7 +138,7 @@ class ApiController extends Controller
         $acceptIdCard = (bool) $this->settings->get('acceptIdCard');
         $acceptLicence = (bool) $this->settings->get('acceptDrivingLicence');
         try {
-            $frame = $this->liveScan->frame($data, $acceptIdCard, $acceptLicence, (bool) $this->settings->get('requireConfirmedName'));
+            $frame = $this->liveScan->frame($data, $acceptIdCard, $acceptLicence, (bool) $this->settings->get('requireConfirmedName'), (bool) $this->settings->get('requirePhysical'));
         } catch (\Throwable $e) {
             unset($data);
             $this->logger->error('idregister: a live frame could not be read', ['exception' => $e]);
@@ -146,9 +156,15 @@ class ApiController extends Controller
 
             return new JSONResponse(['ok' => false, 'done' => false, 'message' => $this->l->t('Nothing has been read yet. Hold the document inside the frame.')] + $frame, Http::STATUS_OK);
         }
+        if ('' !== $frame['blocked']) {
+            unset($data);
+
+            return new JSONResponse(['ok' => false, 'done' => false, 'message' => $frame['status']] + $frame, Http::STATUS_OK);
+        }
 
         // the document is read: the last frame is the picture the rest of the checks work on
         $card = $this->liveScan->result($acceptIdCard, $acceptLicence);
+        $card['liveness'] = $this->liveScan->liveness();
         $this->liveScan->reset();
         $answer = $this->acceptDocument($card, $data, $handoff);
         unset($data);
@@ -227,6 +243,7 @@ class ApiController extends Controller
                 'age' => $age,
                 'faceVector' => $vector,
                 'selfie' => $needsSelfie ? '' : FaceMatch::VERDICT_MATCH,
+                'liveness' => (string) ($card['liveness'] ?? Liveness::VERDICT_UNSURE),
                 'time' => time(),
             ]);
             if ('' !== $handoff) {
@@ -322,7 +339,8 @@ class ApiController extends Controller
                     'cnp' => (string) $card['cnp'],
                     'type' => (string) ($card['type'] ?? DocumentReader::TYPE_ID_CARD),
                     'birthDate' => (string) ($card['birthDate'] ?? ''),
-                    'needsReview' => FaceMatch::VERDICT_REVIEW === ($card['selfie'] ?? ''),
+                    'needsReview' => FaceMatch::VERDICT_REVIEW === ($card['selfie'] ?? '')
+                    || ((bool) $this->settings->get('requirePhysical') && Liveness::VERDICT_OK !== (string) ($card['liveness'] ?? Liveness::VERDICT_UNSURE)),
                     'selfieDistance' => (float) ($card['selfieDistance'] ?? 0),
                 ],
                 $email,
@@ -373,7 +391,8 @@ class ApiController extends Controller
                 'cnp' => (string) $card['cnp'],
                 'type' => (string) ($card['type'] ?? DocumentReader::TYPE_ID_CARD),
                 'birthDate' => (string) ($card['birthDate'] ?? ''),
-                'needsReview' => FaceMatch::VERDICT_REVIEW === ($card['selfie'] ?? ''),
+                'needsReview' => FaceMatch::VERDICT_REVIEW === ($card['selfie'] ?? '')
+                    || ((bool) $this->settings->get('requirePhysical') && Liveness::VERDICT_OK !== (string) ($card['liveness'] ?? Liveness::VERDICT_UNSURE)),
                 'selfieDistance' => (float) ($card['selfieDistance'] ?? 0),
             ]);
             $this->session->remove(self::SESSION_PREFIX.$scanId);

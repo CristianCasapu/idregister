@@ -1,6 +1,11 @@
 OC.L10N.register(
     "idregister",
     {
+    "This looks like a black-and-white copy. Please use the physical document.": "Pare o copie alb-negru. Te rugăm să folosești actul fizic.",
+    "This looks like a picture on a screen. Please use the physical document.": "Pare o poză de pe un ecran. Te rugăm să folosești actul fizic.",
+    "Tilt the document a little, left and right": "Înclină puțin actul, stânga-dreapta",
+    "Close the camera": "Închide camera",
+    "Require the physical document: black-and-white copies and pictures on a screen are refused; when nothing proves the card real, the visitor is asked to tilt it, and if still unsure an administrator reviews the registration": "Cere actul fizic: copiile alb-negru și pozele de pe ecran sunt refuzate; când nimic nu dovedește că actul e real, vizitatorul e rugat să-l încline, iar dacă tot nu e sigur, un administrator verifică înregistrarea",
     "This page needs JavaScript.": "Această pagină are nevoie de JavaScript.",
     "Create your account": "Creează-ți contul",
     "Take a picture of your identity card. We read your name from it and then delete the picture — it is never stored.": "Fotografiază-ți cartea de identitate. Îți citim numele de pe ea, apoi ștergem poza — nu se păstrează niciodată.",

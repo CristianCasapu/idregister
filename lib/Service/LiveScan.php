@@ -36,18 +36,32 @@ final class LiveScan
     /**
      * Read one frame and add it to the running result.
      *
-     * @return array{status:string, level:int, boxes:list<array{x:float,y:float,w:float,h:float}>, done:bool, lines:int, frames:int}
+     * @return array{status:string, level:int, boxes:list<array{x:float,y:float,w:float,h:float}>, done:bool, lines:int, frames:int, blocked:string, tilt:bool}
      */
-    public function frame(string $jpeg, bool $acceptIdCard, bool $acceptLicence, bool $requireConfirmedName): array
+    public function frame(string $jpeg, bool $acceptIdCard, bool $acceptLicence, bool $requireConfirmedName, bool $requirePhysical = true): array
     {
         $state = $this->session->get(self::KEY);
         if (!\is_array($state)) {
-            $state = ['card' => IdCardParser::empty(), 'licence' => null, 'stableCnp' => '', 'stableCount' => 0, 'stableName' => '', 'nameCount' => 0, 'printed' => '', 'printedCount' => 0, 'frames' => 0, 'looksLikeLicence' => 0];
+            $state = ['card' => IdCardParser::empty(), 'licence' => null, 'stableCnp' => '', 'stableCount' => 0, 'stableName' => '', 'nameCount' => 0, 'printed' => '', 'printedCount' => 0, 'frames' => 0, 'looksLikeLicence' => 0, 'live' => ['recent' => [], 'glare' => [], 'tilt' => 0, 'verdict' => Liveness::VERDICT_UNSURE, 'measured' => 0]];
         }
+        $state['live'] ??= ['recent' => [], 'glare' => [], 'tilt' => 0, 'verdict' => Liveness::VERDICT_UNSURE, 'measured' => 0];
 
         $read = $this->ocr->readFrame($jpeg);
         $lines = $read['lines'];
         ++$state['frames'];
+
+        // is it a physical document? (see Liveness) — the numbers come with every frame read
+        $flags = Liveness::frameFlags($read['live'] ?? null);
+        if (null !== ($read['live'] ?? null) && !isset($read['live']['error'])) {
+            ++$state['live']['measured'];
+            $state['live']['recent'][] = ['mono' => $flags['mono'], 'colour' => $flags['colour'], 'screen' => $flags['screen']];
+            $state['live']['recent'] = \array_slice($state['live']['recent'], -Liveness::WINDOW);
+            if (null !== $flags['glare']) {
+                $state['live']['glare'][] = $flags['glare'];
+                $state['live']['glare'] = \array_slice($state['live']['glare'], -20);
+            }
+        }
+        $state['live']['verdict'] = Liveness::verdict($state['live']['recent'], $state['live']['glare']);
 
         $frameCard = IdCardParser::parse($lines);
         // Names printed on the card, without a machine readable zone to confirm them (the new
@@ -106,6 +120,28 @@ final class LiveScan
 
         [$status, $level] = $this->assess($lines, $read['boxes'], $card, $state, $acceptLicence, $done);
 
+        // a copy or a screen: nothing is accepted from it; a card read but not yet proven
+        // physical: ask for a small tilt (the glare moves on a real card), a few frames long
+        $verdict = $state['live']['verdict'];
+        $blocked = '';
+        $tilt = false;
+        if ($requirePhysical && \in_array($verdict, [Liveness::VERDICT_MONO, Liveness::VERDICT_SCREEN], true)) {
+            $blocked = $verdict;
+            $done = false;
+            $level = 0;
+            $status = Liveness::VERDICT_MONO === $verdict
+                ? $this->l->t('This looks like a black-and-white copy. Please use the physical document.')
+                : $this->l->t('This looks like a picture on a screen. Please use the physical document.');
+        } elseif ($requirePhysical && $done && Liveness::VERDICT_UNSURE === $verdict && $state['live']['measured'] > 0) {
+            ++$state['live']['tilt'];
+            if ($state['live']['tilt'] <= Liveness::TILT_FRAMES) {
+                $done = false;
+                $tilt = true;
+                $level = 1;
+                $status = $this->l->t('Tilt the document a little, left and right');
+            }
+        }
+
         $this->session->set(self::KEY, $state);
 
         return [
@@ -115,7 +151,17 @@ final class LiveScan
             'done' => $done,
             'lines' => \count($lines),
             'frames' => (int) $state['frames'],
+            'blocked' => $blocked,
+            'tilt' => $tilt,
         ];
+    }
+
+    /** The physical-document verdict of the scan so far (see Liveness) */
+    public function liveness(): string
+    {
+        $state = $this->session->get(self::KEY);
+
+        return \is_array($state) ? (string) ($state['live']['verdict'] ?? Liveness::VERDICT_UNSURE) : Liveness::VERDICT_UNSURE;
     }
 
     /** Has anything been read so far (so "use what was read" makes sense)? */

@@ -133,7 +133,7 @@ final class Ocr
             $confs[] = (float) $line['conf'];
         }
 
-        return ['lines' => $lines, 'boxes' => $boxes, 'confs' => $confs, 'width' => (int) $out['width'], 'height' => (int) $out['height']];
+        return ['lines' => $lines, 'boxes' => $boxes, 'confs' => $confs, 'width' => (int) $out['width'], 'height' => (int) $out['height'], 'live' => \is_array($out['live'] ?? null) ? $out['live'] : null];
     }
 
     /**
@@ -272,6 +272,7 @@ final class Ocr
                 if (null !== $rapid) {
                     $result = DocumentReader::parse($rapid['lines']);
                     $result['lines'] = \count($rapid['lines']);
+                    $result['live'] = $rapid['live'];
                     if (DocumentReader::TYPE_ID_CARD === $result['type'] && !$result['nameSure'] && $result['cnpSure']
                         && self::confidentName($result['surname'], $rapid['lines'], $rapid['confs'])
                         && self::confidentName($result['givenNames'], $rapid['lines'], $rapid['confs'])) {
@@ -420,9 +421,11 @@ final class Ocr
 
         try {
             $confs = [];
+            $live = null;
             $colour = $this->prepareColour($imageData, 0);
             $rapid = null !== $colour ? $this->rapid($colour) : null;
             if (null !== $rapid) {
+                $live = $rapid['live'];
                 $lines = $rapid['lines'];
                 $boxes = $rapid['boxes'];
                 $confs = $rapid['confs'];
@@ -458,7 +461,7 @@ final class Ocr
                 }
             }
 
-            return ['lines' => $lines, 'boxes' => $boxes, 'confs' => $confs, 'width' => $width, 'height' => $height];
+            return ['lines' => $lines, 'boxes' => $boxes, 'confs' => $confs, 'width' => $width, 'height' => $height, 'live' => $live];
         } finally {
             $this->tempManager->clean();
         }

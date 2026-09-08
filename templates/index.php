@@ -41,6 +41,9 @@ declare(strict_types=1);
 				<video id="idreg-video" playsinline muted autoplay></video>
 				<canvas id="idreg-overlay" aria-hidden="true"></canvas>
 				<div class="idreg-cam-status" id="idreg-cam-status" role="status"><?php p($l->t('Starting the camera …')); ?></div>
+				<button type="button" class="idreg-cam-close" id="idreg-cam-close" aria-label="<?php p($l->t('Close the camera')); ?>">✕</button>
+				<div class="idreg-cam-tilt" aria-hidden="true">⟲ ⟳</div>
+				<div class="idreg-cam-hint" id="idreg-cam-livehint"><?php p($l->t('Dark background, no flash or reflections. It is captured by itself once the personal number is confirmed.')); ?></div>
 				<div class="idreg-cam-bar">
 					<button type="button" class="idreg-cam-button" id="idreg-torch" hidden>💡 <span><?php p($l->t('Torch')); ?></span></button>
 					<button type="button" class="idreg-cam-button primary" id="idreg-use" disabled><?php p($l->t('Use what was read')); ?></button>
@@ -92,7 +95,10 @@ declare(strict_types=1);
 				<video id="idreg-selfie-video" playsinline muted autoplay></video>
 				<canvas id="idreg-selfie-overlay" aria-hidden="true"></canvas>
 				<div class="idreg-cam-status" id="idreg-selfie-status" role="status"><?php p($l->t('Starting the camera …')); ?></div>
+				<button type="button" class="idreg-cam-close" id="idreg-selfie-close" aria-label="<?php p($l->t('Close the camera')); ?>">✕</button>
+				<div class="idreg-cam-hint"><?php p($l->t('Put your face inside the oval, in good light, without sunglasses or a hat.')); ?></div>
 				<div class="idreg-cam-bar">
+					<button type="button" class="idreg-cam-button" id="idreg-selfie-back">‹ <?php p($l->t('Back')); ?></button>
 					<button type="button" class="idreg-cam-button primary" id="idreg-take-selfie" disabled><?php p($l->t('Take the selfie')); ?></button>
 				</div>
 			</div>

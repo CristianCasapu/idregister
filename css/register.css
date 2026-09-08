@@ -527,3 +527,73 @@
 .idreg button.idreg-copy.done { background: var(--color-success, #46ba61); color: #fff; }
 #idreg-login-form { margin-top: var(--idreg-gap); }
 #idreg-login-form button { width: 100%; display: block; }
+
+/* ---- the camera in front of everything while it runs (steps 1 and 3) ---- */
+html.idreg-cam-open, html.idreg-cam-open body { overflow: hidden; }
+.idreg-cam.live {
+	position: fixed;
+	inset: 0;
+	z-index: 10000;
+	width: auto;
+	height: 100vh;
+	height: 100dvh;
+	max-height: none;
+	aspect-ratio: auto;
+	border-radius: 0;
+	margin: 0;
+}
+.idreg-cam.live .idreg-cam-status { top: max(12px, env(safe-area-inset-top)); left: 12px; right: 60px; }
+.idreg-cam.live .idreg-cam-bar { bottom: max(16px, env(safe-area-inset-bottom)); }
+.idreg-cam-close {
+	position: absolute;
+	top: max(12px, env(safe-area-inset-top));
+	right: 12px;
+	width: 40px;
+	height: 40px;
+	border-radius: 50%;
+	border: 1px solid rgba(255, 255, 255, 0.7);
+	background: rgba(0, 0, 0, 0.55);
+	color: #fff;
+	font-size: 1.1rem;
+	display: none;
+	padding: 0;
+	min-height: 0;
+}
+.idreg-cam.live .idreg-cam-close { display: block; }
+.idreg .idreg-cam-close { min-width: 0; box-shadow: none; }
+.idreg-cam-hint {
+	position: absolute;
+	left: 12px;
+	right: 12px;
+	bottom: calc(max(16px, env(safe-area-inset-bottom)) + 62px);
+	padding: 6px 12px;
+	border-radius: 8px;
+	background: rgba(0, 0, 0, 0.5);
+	color: #fff;
+	font-size: 0.85rem;
+	text-align: center;
+	line-height: 1.3;
+	display: none;
+}
+.idreg-cam.live .idreg-cam-hint { display: block; }
+.idreg-cam.off .idreg-cam-close, .idreg-cam.off .idreg-cam-hint, .idreg-cam.off .idreg-cam-tilt { display: none; }
+/* "tilt the document": a gentle rocking hint over the guide */
+.idreg-cam-tilt {
+	position: absolute;
+	left: 0;
+	right: 0;
+	top: 50%;
+	text-align: center;
+	color: #ffb300;
+	font-size: 2.2rem;
+	text-shadow: 0 1px 6px rgba(0, 0, 0, 0.8);
+	display: none;
+	pointer-events: none;
+	animation: idreg-tilt 1.4s ease-in-out infinite;
+}
+.idreg-cam.tilt .idreg-cam-tilt { display: block; }
+@keyframes idreg-tilt {
+	0%, 100% { transform: translateY(-50%) rotate(-8deg); }
+	50% { transform: translateY(-50%) rotate(8deg); }
+}
+
