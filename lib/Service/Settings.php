@@ -13,6 +13,17 @@ use OCP\Security\ISecureRandom;
  */
 final class Settings
 {
+    /** What each number may be: [min, max]. 0 = "no limit" / "no minimum" where it says so in the admin page. */
+    public const RANGES = [
+        'expiryHours' => [1, 720],
+        'minConfidence' => [0.0, 1.0],
+        'minAge' => [0, 120],
+        'minPasswordLength' => [8, 128],
+        'maxAccounts' => [0, 1000000],
+        'selfieMatchDistance' => [0.1, 3.0],
+        'selfieReviewDistance' => [0.1, 3.0],
+    ];
+
     public const DEFAULTS = [
         'registrationOpen' => false,
         'requireApproval' => false,
@@ -90,11 +101,11 @@ final class Settings
                 continue;
             }
             $default = self::DEFAULTS[$key];
+            [$min, $max] = self::RANGES[$key] ?? [0, PHP_INT_MAX];
             $raw = match (true) {
                 \is_bool($default) => filter_var($value, FILTER_VALIDATE_BOOLEAN) ? '1' : '0',
-                // 0 means "no limit" / "no minimum" for the counts; the other numbers stay at least 1
-                \is_int($default) => (string) max(\in_array($key, ['maxAccounts', 'minAge'], true) ? 0 : 1, (int) $value),
-                \is_float($default) => (string) min(1.0, max(0.0, (float) $value)),
+                \is_int($default) => (string) (int) min($max, max($min, (int) $value)),
+                \is_float($default) => (string) min((float) $max, max((float) $min, (float) $value)),
                 default => trim((string) $value),
             };
             $this->config->setValueString(Application::APP_ID, $key, $raw);
