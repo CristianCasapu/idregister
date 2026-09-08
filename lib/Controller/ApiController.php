@@ -39,6 +39,8 @@ use Psr\Log\LoggerInterface;
 class ApiController extends Controller
 {
     public const MAX_UPLOAD = 12 * 1024 * 1024;
+    /** selfies that did not pass before the whole registration starts over */
+    public const MAX_SELFIE_FAILS = 4;
     public const SESSION_PREFIX = 'idregister_scan_';
     /** how long the browser may wait between reading the card and submitting the form */
     public const SCAN_TTL = 1800;
@@ -431,16 +433,26 @@ class ApiController extends Controller
         $result = $this->faceMatch->compare($card['faceVector'] ?? [], $data);
         unset($data);
 
-        if (FaceMatch::VERDICT_NO_FACE === $result['verdict']) {
-            return $this->error($this->l->t('No face was found in the selfie. Hold the phone in front of your face, in good light.'));
-        }
-        if (FaceMatch::VERDICT_COPY === $result['verdict']) {
-            return $this->error($this->l->t('That is the photo on the document, not a selfie. Please take a selfie with the camera.'));
-        }
-        if (FaceMatch::VERDICT_DIFFERENT === $result['verdict']) {
-            $this->logger->info('idregister: the selfie does not match the document (distance '.$result['distance'].')');
+        $failed = match ($result['verdict']) {
+            FaceMatch::VERDICT_NO_FACE => $this->l->t('No face was found in the selfie. Hold the phone in front of your face, in good light.'),
+            FaceMatch::VERDICT_COPY => $this->l->t('That is the photo on the document, not a selfie. Please take a selfie with the camera.'),
+            FaceMatch::VERDICT_DIFFERENT => $this->l->t('The selfie does not match the photo on the document.'),
+            default => '',
+        };
+        if ('' !== $failed) {
+            if (FaceMatch::VERDICT_DIFFERENT === $result['verdict']) {
+                $this->logger->info('idregister: the selfie does not match the document (distance '.$result['distance'].')');
+            }
+            // four selfies that did not pass: this scan is over, back to the start (the reading has to be redone)
+            $card['selfieFails'] = (int) ($card['selfieFails'] ?? 0) + 1;
+            if ($card['selfieFails'] >= self::MAX_SELFIE_FAILS) {
+                $this->session->remove(self::SESSION_PREFIX.$scanId);
 
-            return $this->error($this->l->t('The selfie does not match the photo on the document.'));
+                return new JSONResponse(['ok' => false, 'restart' => true, 'message' => $this->l->t('The selfie could not be matched with the document after %d attempts. Please start again from the beginning.', [self::MAX_SELFIE_FAILS])], Http::STATUS_OK);
+            }
+            $this->session->set(self::SESSION_PREFIX.$scanId, $card);
+
+            return new JSONResponse(['ok' => false, 'message' => $failed, 'attemptsLeft' => self::MAX_SELFIE_FAILS - $card['selfieFails']], Http::STATUS_OK);
         }
 
         $card['selfie'] = $result['verdict'];

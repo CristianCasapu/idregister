@@ -282,7 +282,8 @@
         "Turn your head a little to the left or to the right": "Întoarce puțin capul spre stânga sau spre dreapta",
         "Ask for a small head turn during the selfie (a photo held in front of the camera cannot do it); without it, an administrator reviews the registration": "Cere o mică întoarcere a capului la selfie (o poză ținută în fața camerei nu o poate face); fără ea, un administrator verifică înregistrarea",
         "Start: read the document": "Începe: citește actul",
-        "Continuing in {n} s …": "Continui în {n} s …"
+        "Continuing in {n} s …": "Continui în {n} s …",
+        "The selfie could not be matched with the document after %d attempts. Please start again from the beginning.": "Selfie‑ul nu s‑a potrivit cu actul după %d încercări. Te rugăm să reiei de la început."
     },
     "pluralForm": "nplurals=3; plural=(n==1?0:(((n%100>19)||((n%100==0)&&(n!=0)))?2:1));"
 }

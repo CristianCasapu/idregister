@@ -1,6 +1,7 @@
 OC.L10N.register(
     "idregister",
     {
+    "The selfie could not be matched with the document after %d attempts. Please start again from the beginning.": "Selfie‑ul nu s‑a potrivit cu actul după %d încercări. Te rugăm să reiei de la început.",
     "Good — now look at the camera again": "Bine — acum privește din nou spre cameră",
     "Turn your head a little to the left or to the right": "Întoarce puțin capul spre stânga sau spre dreapta",
     "Ask for a small head turn during the selfie (a photo held in front of the camera cannot do it); without it, an administrator reviews the registration": "Cere o mică întoarcere a capului la selfie (o poză ținută în fața camerei nu o poate face); fără ea, un administrator verifică înregistrarea",

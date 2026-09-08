@@ -884,6 +884,16 @@
 		form.append('scanId', state.scanId);
 		return post('/api/selfie', form, true).then(function (data) {
 			busy(false);
+			if (!data.ok && data.restart) {
+				// four selfies that did not pass: back to the start, the document has to be read again
+				stopSelfieCamera();
+				state.scanId = '';
+				state.card = null;
+				state.selfie = null;
+				step(1);
+				message(data.message, 'error');
+				return false;
+			}
 			if (!data.ok) { message(data.message, 'error'); selfie.status.textContent = data.message || ''; return false; }
 			if (data.review) {
 				message(t('We are not completely sure it is the same person, so an administrator will look at your registration.'), null);
