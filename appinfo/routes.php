@@ -8,6 +8,7 @@ return [
         ['name' => 'page#index', 'url' => '/', 'verb' => 'GET'],
         ['name' => 'page#verify', 'url' => '/verify/{token}', 'verb' => 'GET'],
         ['name' => 'api#scan', 'url' => '/api/scan', 'verb' => 'POST'],
+        ['name' => 'api#scanFrame', 'url' => '/api/scan/frame', 'verb' => 'POST'],
         ['name' => 'api#register', 'url' => '/api/register', 'verb' => 'POST'],
         ['name' => 'api#verifyCode', 'url' => '/api/verify', 'verb' => 'POST'],
         ['name' => 'api#resend', 'url' => '/api/resend', 'verb' => 'POST'],

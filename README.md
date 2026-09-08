@@ -1,4 +1,4 @@
-# ID card registration (`idregister`)
+# Sign up with ID (`idregister`)
 
 A Nextcloud app that lets visitors create their own account from a phone: they photograph their
 Romanian identity card, the server reads the name from it, and they add an e-mail address, a phone
@@ -39,7 +39,7 @@ tar -xzf idregister-1.0.0.tar.gz
 sudo -u www-data php ../occ app:enable idregister
 ```
 
-Then open Administration settings › ID card registration and switch it on. The registration page is
+Then open Administration settings › Sign up with ID and switch it on. The registration page is
 at `/index.php/apps/idregister/`.
 
 ## Commands

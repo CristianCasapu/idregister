@@ -67,6 +67,7 @@
 		Array.prototype.forEach.call(root.querySelectorAll('.idreg-step'), function (s) {
 			s.hidden = Number(s.dataset.step) !== n;
 		});
+		if (n === 1) { window.setTimeout(startCamera, 0); } else if (typeof stopCamera === 'function') { stopCamera(); }
 		var shown = Math.min(Math.max(n, 1), STEPS);
 		Array.prototype.forEach.call(root.querySelectorAll('.dot'), function (d) {
 			d.classList.toggle('on', Number(d.dataset.dot) <= shown);
@@ -84,11 +85,13 @@
 			.then(function (r) { return r.json(); });
 	}
 
-	/** A phone or a tablet? The server guesses from the User-Agent, the browser knows about its touch screen. */
+	/**
+	 * A phone or a tablet? The server decides from the User-Agent and refuses the document scan
+	 * from anything else, so the page follows the same verdict: a computer never gets the form,
+	 * whatever its screen or touch support says.
+	 */
 	function isHandheld() {
-		var touch = (navigator.maxTouchPoints || 0) > 0 || 'ontouchstart' in window;
-		var small = Math.min(screen.width, screen.height) <= 1024;
-		return serverSaysMobile || (touch && small);
+		return serverSaysMobile;
 	}
 
 	if (!enabled) {
@@ -162,7 +165,237 @@
 		message(t('The card reader is not available on this server. Please tell the administrator.'), 'error');
 	}
 
-	/* ---- step 1: the document ---- */
+	/* ---- step 1: the document, read live with the camera (as NecMat does it) ----
+	 * Frames are cropped to the guide and sent one after another; the server reads each one,
+	 * adds it to what earlier frames gave, and says what to do (closer, further, hold still).
+	 * The scan ends by itself once the personal number came out the same in two frames.
+	 * No frame is stored anywhere; only the fields survive, on the server. */
+	var cam = {
+		video: $('idreg-video'), overlay: $('idreg-overlay'), box: $('idreg-cam'),
+		status: $('idreg-cam-status'), stream: null, track: null,
+		running: false, first: true, level: 0, boxes: [], lines: 0, sending: false, torch: false,
+	};
+
+	function guideRect(w, h) {
+		var gw = w * 0.9;
+		var gh = gw * 54 / 85.6;
+		var left = (w - gw) / 2;
+		var top = (h - gh) / 2 - h * 0.06;
+		return { left: left, top: top, width: gw, height: gh };
+	}
+
+	/** object-fit: cover — the same scaling and centring as the video element does */
+	function mapping() {
+		var vw = cam.video.clientWidth, vh = cam.video.clientHeight;
+		var iw = cam.video.videoWidth || 1, ih = cam.video.videoHeight || 1;
+		var sc = Math.max(vw / iw, vh / ih);
+		return { sc: sc, dx: (vw - iw * sc) / 2, dy: (vh - ih * sc) / 2, vw: vw, vh: vh, iw: iw, ih: ih };
+	}
+
+	/** the guide plus a margin, in pixels of the camera image */
+	function cropRect() {
+		var m = mapping();
+		var g = guideRect(m.vw, m.vh);
+		var mx = g.width * 0.08, my = g.height * 0.15;
+		var clamp = function (v, lo, hi) { return Math.min(Math.max(v, lo), hi); };
+		var l = clamp((g.left - mx - m.dx) / m.sc, 0, m.iw - 2);
+		var t = clamp((g.top - my - m.dy) / m.sc, 0, m.ih - 2);
+		var r = clamp((g.left + g.width + mx - m.dx) / m.sc, l + 1, m.iw);
+		var b = clamp((g.top + g.height + my - m.dy) / m.sc, t + 1, m.ih);
+		return { l: l, t: t, w: r - l, h: b - t };
+	}
+
+	function drawOverlay() {
+		var c = cam.overlay;
+		var w = cam.video.clientWidth, h = cam.video.clientHeight;
+		if (!w || !h) { return; }
+		var ratio = window.devicePixelRatio || 1;
+		if (c.width !== Math.round(w * ratio)) { c.width = Math.round(w * ratio); c.height = Math.round(h * ratio); }
+		var ctx = c.getContext('2d');
+		ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
+		ctx.clearRect(0, 0, w, h);
+		var g = guideRect(w, h);
+		ctx.fillStyle = 'rgba(0,0,0,0.45)';
+		ctx.fillRect(0, 0, w, g.top);
+		ctx.fillRect(0, g.top + g.height, w, h - g.top - g.height);
+		ctx.fillRect(0, g.top, g.left, g.height);
+		ctx.fillRect(g.left + g.width, g.top, w - g.left - g.width, g.height);
+		ctx.strokeStyle = cam.level === 2 ? '#43a047' : (cam.level === 1 ? '#ffb300' : '#e53935');
+		ctx.lineWidth = 4;
+		ctx.beginPath();
+		if (ctx.roundRect) { ctx.roundRect(g.left, g.top, g.width, g.height, 14); } else { ctx.rect(g.left, g.top, g.width, g.height); }
+		ctx.stroke();
+		// the text the server found, back from the crop into the view
+		var crop = cropRect();
+		var m = mapping();
+		ctx.strokeStyle = 'rgba(100,181,246,0.9)';
+		ctx.lineWidth = 2;
+		cam.boxes.forEach(function (b) {
+			var x = (crop.l + b.x * crop.w) * m.sc + m.dx;
+			var y = (crop.t + b.y * crop.h) * m.sc + m.dy;
+			ctx.strokeRect(x, y, b.w * crop.w * m.sc, b.h * crop.h * m.sc);
+		});
+	}
+
+	function grabFrame() {
+		var crop = cropRect();
+		var canvas = document.createElement('canvas');
+		var scale = Math.min(1, 1400 / crop.w);
+		canvas.width = Math.max(2, Math.round(crop.w * scale));
+		canvas.height = Math.max(2, Math.round(crop.h * scale));
+		canvas.getContext('2d').drawImage(cam.video, crop.l, crop.t, crop.w, crop.h, 0, 0, canvas.width, canvas.height);
+		return new Promise(function (resolve) { canvas.toBlob(resolve, 'image/jpeg', 0.85); });
+	}
+
+	function setStatus(text, level) {
+		cam.status.textContent = text;
+		cam.level = level;
+	}
+
+	function stopCamera() {
+		cam.running = false;
+		if (cam.stream) {
+			cam.stream.getTracks().forEach(function (tr) { tr.stop(); });
+			cam.stream = null;
+			cam.track = null;
+		}
+	}
+
+	function documentRead(data) {
+		state.card = data;
+		state.scanId = data.scanId;
+		$('idreg-given').value = data.givenNames;
+		$('idreg-surname').value = data.surname;
+		$('idreg-doc-type').textContent = data.type === 'driving_licence'
+			? t('Read from a driving licence.')
+			: t('Read from an identity card.');
+		step(2);
+	}
+
+	/** one frame to the server; resolves when the answer is handled */
+	function sendFrame(final) {
+		if (cam.sending || !cam.video.videoWidth) { return Promise.resolve(); }
+		cam.sending = true;
+		return grabFrame().then(function (blob) {
+			if (!blob || !cam.running) { return; }
+			var form = new FormData();
+			form.append('frame', blob, 'frame.jpg');
+			if (handoff) { form.append('handoff', handoff); }
+			if (cam.first) { form.append('start', '1'); cam.first = false; }
+			if (final) { form.append('final', '1'); }
+			return fetch(url('/api/scan/frame'), { method: 'POST', headers: { requesttoken: (typeof OC !== 'undefined' && OC.requestToken) || '' }, body: form })
+				.then(function (r) { return r.json(); })
+				.then(function (data) {
+					if (!cam.running) { return; }
+					if (data.fatal) {
+						stopCamera();
+						showPhotoFallback(data.message);
+						return;
+					}
+					cam.boxes = data.boxes || [];
+					cam.lines = data.lines || 0;
+					if (data.status) { setStatus(data.status, data.level || 0); }
+					$('idreg-use').disabled = !(cam.lines >= 3 || data.frames > 0);
+					if (data.done) {
+						if (data.ok) {
+							stopCamera();
+							documentRead(data);
+						} else {
+							// read, but not good enough (name not confirmed, too young …): say why and keep looking
+							message(data.message || t('The identity card could not be read. Try again with more light and the whole card in the frame.'), 'error');
+							cam.first = true;
+						}
+					} else if (final && data.message) {
+						message(data.message, 'error');
+					}
+				});
+		}).catch(function () {
+			// a lost frame is not an error: the next one follows
+		}).then(function () { cam.sending = false; });
+	}
+
+	function frameLoop() {
+		if (!cam.running) { return; }
+		var started = Date.now();
+		sendFrame(false).then(function () {
+			drawOverlay();
+			var wait = Math.max(0, 350 - (Date.now() - started));
+			window.setTimeout(frameLoop, wait);
+		});
+	}
+
+	function showPhotoFallback(why) {
+		cam.box.classList.add('off');
+		setStatus(why || t('The camera could not be started. Take a picture instead.'), 0);
+		$('idreg-photo').hidden = false;
+		$('idreg-photo-link').parentNode.hidden = true;
+	}
+
+	function startCamera() {
+		if (!ocrReady || cam.running) { return; }
+		if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+			showPhotoFallback();
+			return;
+		}
+		cam.box.classList.remove('off');
+		$('idreg-photo').hidden = true;
+		$('idreg-photo-link').parentNode.hidden = false;
+		cam.running = true;
+		cam.first = true;
+		cam.boxes = [];
+		cam.lines = 0;
+		$('idreg-use').disabled = true;
+		setStatus(t('Starting the camera …'), 0);
+		navigator.mediaDevices.getUserMedia({
+			audio: false,
+			video: { facingMode: { ideal: 'environment' }, width: { ideal: 1920 }, height: { ideal: 1440 } },
+		}).then(function (stream) {
+			if (!cam.running) { stream.getTracks().forEach(function (tr) { tr.stop(); }); return; }
+			cam.stream = stream;
+			cam.track = stream.getVideoTracks()[0];
+			cam.video.srcObject = stream;
+			var caps = cam.track.getCapabilities ? cam.track.getCapabilities() : {};
+			$('idreg-torch').hidden = !caps.torch;
+			return cam.video.play().catch(function () {});
+		}).then(function () {
+			if (!cam.running) { return; }
+			setStatus(t('Put the document inside the frame'), 0);
+			var begin = function () {
+				if (!cam.running) { return; }
+				drawOverlay();
+				frameLoop();
+			};
+			if (cam.video.videoWidth) { begin(); } else { cam.video.addEventListener('loadedmetadata', begin, { once: true }); }
+		}).catch(function (e) {
+			console.warn('camera', e);
+			cam.running = false;
+			showPhotoFallback();
+		});
+	}
+
+	$('idreg-torch').addEventListener('click', function () {
+		if (!cam.track) { return; }
+		cam.torch = !cam.torch;
+		cam.track.applyConstraints({ advanced: [{ torch: cam.torch }] }).catch(function () {});
+		$('idreg-torch').querySelector('span').textContent = cam.torch ? t('Torch: on') : t('Torch');
+	});
+
+	$('idreg-use').addEventListener('click', function () {
+		if (!cam.running) { return; }
+		setStatus(t('Reading the document …'), 1);
+		sendFrame(true);
+	});
+
+	$('idreg-photo-link').addEventListener('click', function (event) {
+		event.preventDefault();
+		stopCamera();
+		showPhotoFallback(t('Photograph the document'));
+	});
+
+	window.addEventListener('resize', function () { if (cam.running) { drawOverlay(); } });
+	window.addEventListener('pagehide', stopCamera);
+
+	/* ---- step 1 (fallback): a picture of the document ---- */
 	$('idreg-file').addEventListener('change', function (event) {
 		var file = event.target.files && event.target.files[0];
 		if (!file) { return; }
@@ -187,14 +420,7 @@
 				message(data.message || t('The identity card could not be read. Try again with more light and the whole card in the frame.'), 'error');
 				return;
 			}
-			state.card = data;
-			state.scanId = data.scanId;
-			$('idreg-given').value = data.givenNames;
-			$('idreg-surname').value = data.surname;
-			$('idreg-doc-type').textContent = data.type === 'driving_licence'
-				? t('Read from a driving licence.')
-				: t('Read from an identity card.');
-			step(2);
+			documentRead(data);
 		}).catch(function () {
 			busy(false);
 			message(t('Something went wrong. Please try again.'), 'error');
@@ -342,9 +568,9 @@
 		termsLink.hidden = false;
 	}
 	if (conditions.acceptDrivingLicence && conditions.acceptIdCard) {
-		$('idreg-doc-lead').textContent = t('Take a picture of your identity card or your driving licence. We read your name from it and then delete the picture — it is never stored.');
+		$('idreg-doc-lead').textContent = t('Hold your identity card or your driving licence in front of the camera. We read your name from it while you hold it; no picture is stored.');
 	} else if (conditions.acceptDrivingLicence) {
-		$('idreg-doc-lead').textContent = t('Take a picture of your driving licence. We read your name from it and then delete the picture — it is never stored.');
+		$('idreg-doc-lead').textContent = t('Hold your driving licence in front of the camera. We read your name from it while you hold it; no picture is stored.');
 	}
 
 	step(1);

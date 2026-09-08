@@ -34,17 +34,30 @@ declare(strict_types=1);
 			</ol>
 		</section>
 
-		<!-- 1: the document -->
+		<!-- 1: the document, read live with the camera -->
 		<section class="idreg-step" data-step="1" hidden>
-			<p class="idreg-lead" id="idreg-doc-lead"><?php p($l->t('Take a picture of your identity card. We read your name from it and then delete the picture — it is never stored.')); ?></p>
-			<label class="idreg-capture" for="idreg-file">
-				<span class="idreg-capture-icon" aria-hidden="true">📷</span>
-				<span id="idreg-capture-text"><?php p($l->t('Photograph the document')); ?></span>
-			</label>
-			<input type="file" id="idreg-file" accept="image/*" capture="environment" hidden>
-			<img id="idreg-preview" alt="" hidden>
-			<p class="idreg-hint"><?php p($l->t('Put the whole document in the frame, on a dark surface, without reflections.')); ?></p>
-			<button type="button" class="idreg-button primary" id="idreg-scan" disabled><?php p($l->t('Read the document')); ?></button>
+			<p class="idreg-lead" id="idreg-doc-lead"><?php p($l->t('Hold your identity card in front of the camera. We read your name from it while you hold it; no picture is stored.')); ?></p>
+			<div class="idreg-cam" id="idreg-cam">
+				<video id="idreg-video" playsinline muted autoplay></video>
+				<canvas id="idreg-overlay" aria-hidden="true"></canvas>
+				<div class="idreg-cam-status" id="idreg-cam-status" role="status"><?php p($l->t('Starting the camera …')); ?></div>
+				<div class="idreg-cam-bar">
+					<button type="button" class="idreg-cam-button" id="idreg-torch" hidden>💡 <span><?php p($l->t('Torch')); ?></span></button>
+					<button type="button" class="idreg-cam-button primary" id="idreg-use" disabled><?php p($l->t('Use what was read')); ?></button>
+				</div>
+			</div>
+			<p class="idreg-hint" id="idreg-cam-hint"><?php p($l->t('Dark background, no flash or reflections. It is captured by itself once the personal number is confirmed.')); ?></p>
+			<p class="idreg-hint"><a href="#" id="idreg-photo-link"><?php p($l->t('Cannot use the camera? Photograph the document')); ?></a></p>
+			<div id="idreg-photo" hidden>
+				<label class="idreg-capture" for="idreg-file">
+					<span class="idreg-capture-icon" aria-hidden="true">📷</span>
+					<span id="idreg-capture-text"><?php p($l->t('Photograph the document')); ?></span>
+				</label>
+				<input type="file" id="idreg-file" accept="image/*" capture="environment" hidden>
+				<img id="idreg-preview" alt="" hidden>
+				<p class="idreg-hint"><?php p($l->t('Put the whole document in the frame, on a dark surface, without reflections.')); ?></p>
+				<button type="button" class="idreg-button primary" id="idreg-scan" disabled><?php p($l->t('Read the document')); ?></button>
+			</div>
 		</section>
 
 		<!-- 2: what was read -->
@@ -60,7 +73,7 @@ declare(strict_types=1);
 			</div>
 			<p class="idreg-hint" id="idreg-doc-type"></p>
 			<div class="idreg-buttons">
-				<button type="button" class="idreg-button" id="idreg-again"><?php p($l->t('Take another picture')); ?></button>
+				<button type="button" class="idreg-button" id="idreg-again"><?php p($l->t('Scan again')); ?></button>
 				<button type="button" class="idreg-button primary" id="idreg-confirm-card"><?php p($l->t('This is me')); ?></button>
 			</div>
 		</section>

@@ -8,6 +8,7 @@ use OCA\IdRegister\AppInfo\Application;
 use OCA\IdRegister\Service\Device;
 use OCA\IdRegister\Service\DocumentReader;
 use OCA\IdRegister\Service\FaceMatch;
+use OCA\IdRegister\Service\LiveScan;
 use OCA\IdRegister\Service\Handoff;
 use OCA\IdRegister\Service\IdCardParser;
 use OCA\IdRegister\Service\Ocr;
@@ -46,6 +47,7 @@ class ApiController extends Controller
         private FaceMatch $faceMatch,
         private Handoff $handoff,
         private ISession $session,
+        private LiveScan $liveScan,
         private ISecureRandom $random,
         private IL10N $l,
         private LoggerInterface $logger,
@@ -88,6 +90,81 @@ class ApiController extends Controller
             return $this->error($this->l->t('The identity card could not be read. Try again with more light and the whole card in the frame.'));
         }
 
+        return new JSONResponse($this->acceptDocument($card, $data, $handoff), Http::STATUS_OK);
+    }
+
+    /**
+     * Live scanning with the camera (see Service\LiveScan): one frame per call. The answer
+     * carries the guidance for the phone; when the document is read (or the visitor asks to use
+     * what was read so far, final=1) the same checks as for a picture apply and a scan id is given.
+     */
+    #[UseSession]
+    #[PublicPage]
+    #[AnonRateLimit(limit: 2000, period: 3600)]
+    public function scanFrame(string $handoff = '', int $start = 0, int $final = 0): JSONResponse
+    {
+        if (!$this->settings->get('registrationOpen')) {
+            return $this->error($this->l->t('Registration is currently closed.'), true);
+        }
+        if ($this->settings->get('mobileOnly') && !Device::isMobile((string) $this->request->getHeader('User-Agent'))) {
+            return $this->error($this->l->t('Please continue on a phone or a tablet.'), true);
+        }
+        if (1 === $start) {
+            $this->liveScan->reset();
+        }
+        $file = $this->request->getUploadedFile('frame');
+        if (null === $file || !isset($file['tmp_name']) || !is_uploaded_file($file['tmp_name'])) {
+            return $this->error($this->l->t('No picture was received.'));
+        }
+        if (($file['size'] ?? 0) > 4 * 1024 * 1024) {
+            return $this->error($this->l->t('The picture is too large (maximum 12 MB).'));
+        }
+        $data = file_get_contents($file['tmp_name']);
+        @unlink($file['tmp_name']);
+        if (false === $data || '' === $data) {
+            return $this->error($this->l->t('The picture could not be read.'));
+        }
+
+        $acceptIdCard = (bool) $this->settings->get('acceptIdCard');
+        $acceptLicence = (bool) $this->settings->get('acceptDrivingLicence');
+        try {
+            $frame = $this->liveScan->frame($data, $acceptIdCard, $acceptLicence, (bool) $this->settings->get('requireConfirmedName'));
+        } catch (\Throwable $e) {
+            unset($data);
+            $this->logger->error('idregister: a live frame could not be read', ['exception' => $e]);
+
+            return $this->error($this->l->t('The card reader is not available on this server. Please tell the administrator.'), true);
+        }
+
+        if (!$frame['done'] && 1 !== $final) {
+            unset($data);
+
+            return new JSONResponse(['ok' => true, 'done' => false] + $frame, Http::STATUS_OK);
+        }
+        if (1 === $final && !$this->liveScan->hasSomething()) {
+            unset($data);
+
+            return new JSONResponse(['ok' => false, 'done' => false, 'message' => $this->l->t('Nothing has been read yet. Hold the document inside the frame.')] + $frame, Http::STATUS_OK);
+        }
+
+        // the document is read: the last frame is the picture the rest of the checks work on
+        $card = $this->liveScan->result($acceptIdCard, $acceptLicence);
+        $this->liveScan->reset();
+        $answer = $this->acceptDocument($card, $data, $handoff);
+        unset($data);
+
+        return new JSONResponse(['done' => true] + $answer + ['status' => $frame['status'], 'level' => $frame['level'], 'boxes' => $frame['boxes']], Http::STATUS_OK);
+    }
+
+    /**
+     * The checks every document goes through, whichever way it was read, and the scan id the
+     * browser gets in return. What was read stays on the server.
+     *
+     * @param array{type:string, surname:string, givenNames:string, cnp:string, cnpSure:bool, nameSure:bool, birthDate:string, confidence:float} $card
+     * @param string $data the picture of the document (only used for the face on it, then dropped)
+     */
+    private function acceptDocument(array $card, string $data, string $handoff): array
+    {
         // which documents does the administrator take?
         $accepted = DocumentReader::TYPE_DRIVING_LICENCE === $card['type']
             ? (bool) $this->settings->get('acceptDrivingLicence')
@@ -95,9 +172,9 @@ class ApiController extends Controller
         if (!$accepted) {
             unset($data);
 
-            return $this->error(DocumentReader::TYPE_DRIVING_LICENCE === $card['type']
+            return ['ok' => false, 'message' => DocumentReader::TYPE_DRIVING_LICENCE === $card['type']
                 ? $this->l->t('A driving licence is not accepted here. Please use your identity card.')
-                : $this->l->t('An identity card is not accepted here. Please use your driving licence.'));
+                : $this->l->t('An identity card is not accepted here. Please use your driving licence.')];
         }
 
         $enough = $card['confidence'] >= (float) $this->settings->get('minConfidence')
@@ -119,10 +196,7 @@ class ApiController extends Controller
         $age = self::ageFrom($card);
         $minAge = (int) $this->settings->get('minAge');
         if ($enough && $minAge > 0 && null !== $age && $age < $minAge) {
-            return new JSONResponse([
-                'ok' => false,
-                'message' => $this->l->t('You have to be at least %d years old to register here.', [$minAge]),
-            ], Http::STATUS_OK);
+            return ['ok' => false, 'message' => $this->l->t('You have to be at least %d years old to register here.', [$minAge])];
         }
 
         // What was read stays on the server: the browser only gets a handle to it, so the
@@ -141,7 +215,7 @@ class ApiController extends Controller
                 if (0 === $faceOnDocument) {
                     unset($data);
 
-                    return $this->error($this->l->t('The photo on the document could not be found. Take the picture again, with the whole document in the frame.'));
+                    return ['ok' => false, 'message' => $this->l->t('The photo on the document could not be found. Take the picture again, with the whole document in the frame.')];
                 }
             }
             $this->session->set(self::SESSION_PREFIX.$scanId, [
@@ -161,7 +235,7 @@ class ApiController extends Controller
         }
         unset($data);
 
-        return new JSONResponse([
+        return [
             'ok' => $enough,
             'scanId' => $enough ? $scanId : '',
             'type' => $card['type'],
@@ -170,7 +244,7 @@ class ApiController extends Controller
             'confidence' => $card['confidence'],
             'needsSelfie' => $needsSelfie,
             'message' => $enough ? '' : ($message ?? $this->l->t('The identity card could not be read. Try again with more light and the whole card in the frame.')),
-        ], Http::STATUS_OK);
+        ];
     }
 
     /**
@@ -366,8 +440,11 @@ class ApiController extends Controller
         }
     }
 
-    private function error(string $message): JSONResponse
+    private function error(string $message, bool $fatal = false): JSONResponse
     {
+        if ($fatal) {
+            return new JSONResponse(['ok' => false, 'fatal' => true, 'message' => $message], Http::STATUS_OK);
+        }
         return new JSONResponse(['ok' => false, 'message' => $message], Http::STATUS_OK);
     }
 }

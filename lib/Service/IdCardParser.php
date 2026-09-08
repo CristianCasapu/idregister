@@ -103,6 +103,47 @@ final class IdCardParser
     }
 
     /**
+     * What two readings of the same card know together (live scanning: the personal number
+     * comes from one frame, the name from another). A confirmed value always wins over a
+     * doubtful one; between two doubtful ones the longer text is kept.
+     *
+     * @param array{surname:string, givenNames:string, cnp:string, surnameSure:bool, givenSure:bool, cnpSure:bool} $a
+     * @param array{surname:string, givenNames:string, cnp:string, surnameSure:bool, givenSure:bool, cnpSure:bool} $b
+     *
+     * @return array{surname:string, givenNames:string, cnp:string, surnameSure:bool, givenSure:bool, cnpSure:bool, confidence:float}
+     */
+    public static function merge(array $a, array $b): array
+    {
+        $pick = static function (string $av, bool $aSure, string $bv, bool $bSure): array {
+            if ($aSure && '' !== $av) {
+                return [$av, true];
+            }
+            if ($bSure && '' !== $bv) {
+                return [$bv, true];
+            }
+            if ('' === $av) {
+                return [$bv, false];
+            }
+            if ('' === $bv) {
+                return [$av, false];
+            }
+
+            return [\strlen($bv) > \strlen($av) ? $bv : $av, false];
+        };
+        [$surname, $surnameSure] = $pick($a['surname'], $a['surnameSure'], $b['surname'], $b['surnameSure']);
+        [$given, $givenSure] = $pick($a['givenNames'], $a['givenSure'], $b['givenNames'], $b['givenSure']);
+        [$cnp, $cnpSure] = $pick($a['cnp'], $a['cnpSure'], $b['cnp'], $b['cnpSure']);
+
+        return self::result($surname, $given, $cnp, $surnameSure, $givenSure, $cnpSure);
+    }
+
+    /** @return array{surname:string, givenNames:string, cnp:string, surnameSure:bool, givenSure:bool, cnpSure:bool, confidence:float} */
+    public static function empty(): array
+    {
+        return self::result('', '', '', false, false, false);
+    }
+
+    /**
      * Birth date encoded in a Romanian personal number, or null when it cannot be read.
      * The first digit says both the sex and the century: 1/2 → 1900s, 3/4 → 1800s,
      * 5/6 → 2000s, 7/8/9 → residents and foreigners, dated like 1/2.

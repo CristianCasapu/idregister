@@ -19,6 +19,8 @@ final class Ocr
     /** the MRZ uses OCR-B and only these characters */
     public const MRZ_WHITELIST = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789<';
     public const TIMEOUT = 60;
+    /** a live frame is enlarged to this size before reading (small letters read badly) */
+    public const FRAME_MIN_PX = 1600;
 
     public function __construct(
         private ITempManager $tempManager,
@@ -132,7 +134,7 @@ final class Ocr
     /**
      * Normalise the picture for OCR and return the path of a temporary PNG.
      */
-    private function prepare(string $imageData, int $degrees): ?string
+    private function prepare(string $imageData, int $degrees, int $minPx = 0): ?string
     {
         $target = $this->tempManager->getTemporaryFile('.png');
         if (false === $target) {
@@ -154,6 +156,9 @@ final class Ocr
                 $h = $image->getImageHeight();
                 if (max($w, $h) > self::MAX_PX) {
                     $scale = self::MAX_PX / max($w, $h);
+                    $image->resizeImage((int) ($w * $scale), (int) ($h * $scale), \Imagick::FILTER_LANCZOS, 1);
+                } elseif ($minPx > 0 && max($w, $h) < $minPx) {
+                    $scale = $minPx / max($w, $h);
                     $image->resizeImage((int) ($w * $scale), (int) ($h * $scale), \Imagick::FILTER_LANCZOS, 1);
                 }
                 $image->transformImageColorspace(\Imagick::COLORSPACE_GRAY);
@@ -203,11 +208,148 @@ final class Ocr
     }
 
     /**
+     * Read one frame of the live camera (the card, cropped to the guide by the phone).
+     *
+     * One pass over the frame gives the lines with their positions (the phone draws them and the
+     * guidance needs them); when the name or the personal number is still missing, the machine
+     * readable zone at the bottom is read again, enlarged and restricted to its alphabet.
+     * Nothing is rotated: the phone holds the card the way the guide shows it.
+     *
+     * @return array{lines:list<string>, boxes:list<array{x:float,y:float,w:float,h:float}>, width:int, height:int}
+     */
+    public function readFrame(string $imageData): array
+    {
+        $binary = self::binary();
+        if ('' === $binary) {
+            throw new \RuntimeException('Tesseract is not installed on the server');
+        }
+
+        try {
+            $prepared = $this->prepare($imageData, 0, self::FRAME_MIN_PX);
+            if (null === $prepared) {
+                throw new \RuntimeException('The frame could not be decoded');
+            }
+            [$width, $height] = self::sizeOf($prepared);
+            $tsv = $this->run($binary, $prepared, ['--psm', '6', '-l', self::LANGS, 'tsv']);
+            [$lines, $boxes] = self::linesFromTsv($tsv, $width, $height);
+
+            $parsed = IdCardParser::parse($lines);
+            if (!$parsed['cnpSure'] || '' === $parsed['surname'] || '' === $parsed['givenNames']) {
+                $mrz = $this->cropBottom($prepared, $width, $height, 0.36, 2.0);
+                if (null !== $mrz) {
+                    $more = $this->tesseract($binary, $mrz, ['--psm', '6', '-l', 'eng', '-c', 'tessedit_char_whitelist='.self::MRZ_WHITELIST]);
+                    foreach ($more as $line) {
+                        if (!\in_array($line, $lines, true)) {
+                            $lines[] = $line;
+                        }
+                    }
+                }
+            }
+
+            return ['lines' => $lines, 'boxes' => $boxes, 'width' => $width, 'height' => $height];
+        } finally {
+            $this->tempManager->clean();
+        }
+    }
+
+    /** @return array{0:int,1:int} */
+    private static function sizeOf(string $path): array
+    {
+        $size = @getimagesize($path);
+
+        return [(int) ($size[0] ?? 0), (int) ($size[1] ?? 0)];
+    }
+
+    /** The bottom band of a prepared frame (the machine readable zone), enlarged. */
+    private function cropBottom(string $path, int $width, int $height, float $fraction, float $scale): ?string
+    {
+        if ($width < 2 || $height < 2 || !class_exists(\Imagick::class)) {
+            return null;
+        }
+        $target = $this->tempManager->getTemporaryFile('.png');
+        if (false === $target) {
+            return null;
+        }
+
+        try {
+            $image = new \Imagick($path);
+            $h = max(1, (int) round($height * $fraction));
+            $image->cropImage($width, $h, 0, $height - $h);
+            $image->setImagePage(0, 0, 0, 0);
+            $image->resizeImage((int) round($width * $scale), (int) round($h * $scale), \Imagick::FILTER_LANCZOS, 1);
+            $image->writeImage($target);
+            $image->clear();
+
+            return $target;
+        } catch (\Throwable $e) {
+            return null;
+        }
+    }
+
+    /**
+     * Lines of text and their boxes (relative to the image) from Tesseract's TSV output:
+     * the words of one line are joined in reading order, the box is their union.
+     *
+     * @return array{0:list<string>, 1:list<array{x:float,y:float,w:float,h:float}>}
+     */
+    public static function linesFromTsv(string $tsv, int $width, int $height): array
+    {
+        $groups = [];
+        foreach (explode("\n", $tsv) as $row) {
+            $cols = explode("\t", $row);
+            if (\count($cols) < 12 || '5' !== $cols[0]) {
+                continue;
+            }
+            $text = trim($cols[11]);
+            if ('' === $text) {
+                continue;
+            }
+            $key = $cols[2].'.'.$cols[3].'.'.$cols[4];
+            $groups[$key] ??= ['words' => [], 'l' => PHP_INT_MAX, 't' => PHP_INT_MAX, 'r' => 0, 'b' => 0];
+            $left = (int) $cols[6];
+            $top = (int) $cols[7];
+            $groups[$key]['words'][] = [$left, $text];
+            $groups[$key]['l'] = min($groups[$key]['l'], $left);
+            $groups[$key]['t'] = min($groups[$key]['t'], $top);
+            $groups[$key]['r'] = max($groups[$key]['r'], $left + (int) $cols[8]);
+            $groups[$key]['b'] = max($groups[$key]['b'], $top + (int) $cols[9]);
+        }
+        // reading order: top to bottom, then left to right
+        uasort($groups, static fn ($a, $b) => [$a['t'], $a['l']] <=> [$b['t'], $b['l']]);
+        $lines = [];
+        $boxes = [];
+        foreach ($groups as $g) {
+            usort($g['words'], static fn ($a, $b) => $a[0] <=> $b[0]);
+            $lines[] = implode(' ', array_column($g['words'], 1));
+            $boxes[] = [
+                'x' => $width > 0 ? round($g['l'] / $width, 4) : 0.0,
+                'y' => $height > 0 ? round($g['t'] / $height, 4) : 0.0,
+                'w' => $width > 0 ? round(($g['r'] - $g['l']) / $width, 4) : 0.0,
+                'h' => $height > 0 ? round(($g['b'] - $g['t']) / $height, 4) : 0.0,
+            ];
+        }
+
+        return [$lines, $boxes];
+    }
+
+    /**
      * @param list<string> $options
      *
      * @return list<string>
      */
     private function tesseract(string $binary, string $image, array $options): array
+    {
+        $output = $this->run($binary, $image, $options);
+
+        return array_values(array_filter(array_map('trim', explode("\n", $output)), static fn ($l) => '' !== $l));
+    }
+
+    /**
+     * @param list<string> $options
+     *
+     * @return string raw output of Tesseract
+     */
+    private function run(string $binary, string $image, array $options): string
     {
         $command = array_merge([$binary, $image, 'stdout'], $options);
         $descriptors = [1 => ['pipe', 'w'], 2 => ['pipe', 'w']];
@@ -239,6 +381,6 @@ final class Ocr
             $this->logger->debug('idregister: tesseract said '.trim($error));
         }
 
-        return array_values(array_filter(array_map('trim', explode("\n", $output)), static fn ($l) => '' !== $l));
+        return $output;
     }
 }

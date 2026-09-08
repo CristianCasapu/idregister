@@ -361,3 +361,60 @@
 	content: '✓';
 	left: 3px;
 }
+
+/* ---- live camera scan (step 1) ---- */
+.idreg-cam {
+	position: relative;
+	width: 100%;
+	aspect-ratio: 3 / 4;
+	max-height: 70vh;
+	background: #000;
+	border-radius: 12px;
+	overflow: hidden;
+	margin-bottom: var(--idreg-gap);
+}
+.idreg-cam video,
+.idreg-cam canvas {
+	position: absolute;
+	inset: 0;
+	width: 100%;
+	height: 100%;
+}
+.idreg-cam video { object-fit: cover; }
+.idreg-cam-status {
+	position: absolute;
+	top: 12px;
+	left: 12px;
+	right: 12px;
+	padding: 8px 14px;
+	border-radius: 10px;
+	background: rgba(0, 0, 0, 0.62);
+	color: #fff;
+	font-weight: 600;
+	text-align: center;
+	line-height: 1.3;
+}
+.idreg-cam-bar {
+	position: absolute;
+	bottom: 12px;
+	left: 12px;
+	right: 12px;
+	display: flex;
+	gap: 10px;
+	justify-content: space-between;
+	align-items: center;
+}
+.idreg-cam-button {
+	border: 1px solid rgba(255, 255, 255, 0.7);
+	background: rgba(0, 0, 0, 0.55);
+	color: #fff;
+	border-radius: 10px;
+	padding: 10px 14px;
+	font-size: 0.95rem;
+	min-height: 44px;
+}
+.idreg-cam-button.primary { background: var(--color-primary-element, #0082c9); border-color: transparent; margin-left: auto; }
+.idreg-cam-button:disabled { opacity: 0.45; }
+.idreg-cam.off video, .idreg-cam.off canvas, .idreg-cam.off .idreg-cam-bar { display: none; }
+.idreg-cam.off { aspect-ratio: auto; min-height: 56px; }
+.idreg-cam.off .idreg-cam-status { position: static; }

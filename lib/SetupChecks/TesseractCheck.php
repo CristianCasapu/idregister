@@ -22,7 +22,7 @@ final class TesseractCheck implements ISetupCheck
 
     public function getName(): string
     {
-        return $this->l->t('ID card registration: text recognition');
+        return $this->l->t('Sign up with ID: text recognition');
     }
 
     public function run(): SetupResult
