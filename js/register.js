@@ -356,7 +356,6 @@
 					cam.box.classList.toggle('tilt', !!data.tilt);
 					if (data.blocked) {
 						// a copy or a screen: keep looking, the real card may come next
-						cam.first = true;
 						$('idreg-use').disabled = true;
 						return;
 					}
