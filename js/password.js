@@ -20,8 +20,10 @@ window.idregPassword = (function () {
 		if (rules.case) { score += 1; }
 		if (rules.digit) { score += 1; }
 		if (rules.symbol) { score += 1; }
-		// a single repeated character or an obvious sequence is not a password
-		if (/^(.)\1+$/.test(password) || /12345|abcde|qwerty|parola|password/i.test(password)) { score = Math.min(score, 1); }
+		// A password that is little more than a well-known word or sequence is weak whatever its
+		// length says; one that merely contains such a word inside a long mixed password is not.
+		var stripped = password.replace(/12345|abcde|qwerty|parola|password/gi, '');
+		if (/^(.)\1+$/.test(password) || stripped.length < 6) { score = Math.min(score, 1); }
 
 		var labels = [
 			t('Too short'), t('Weak'), t('Fair'), t('Good'), t('Strong'), t('Very strong'),
