@@ -261,8 +261,88 @@ class ApiController extends Controller
             'givenNames' => $card['givenNames'],
             'confidence' => $card['confidence'],
             'needsSelfie' => $needsSelfie,
+            'can' => (string) ($card['can'] ?? ''),
             'message' => $enough ? '' : ($message ?? $this->l->t('The identity card could not be read. Try again with more light and the whole card in the frame.')),
         ];
+    }
+
+    /**
+     * What the chip of the electronic identity card said, read by the phone app through NFC
+     * (PACE with the printed access number): the machine readable data and the photo. A chip
+     * that answered is proof of a physical card; its data replaces what the camera read, and its
+     * photo becomes the reference for the selfie. Nothing of it is kept beyond the session.
+     */
+    #[UseSession]
+    #[PublicPage]
+    #[AnonRateLimit(limit: 30, period: 3600)]
+    public function chip(
+        string $scanId = '',
+        string $surname = '',
+        string $givenNames = '',
+        string $documentNumber = '',
+        string $personalNumber = '',
+        string $dateOfBirth = '',
+        string $dateOfExpiry = '',
+        string $nationality = '',
+    ): JSONResponse {
+        $card = $this->session->get(self::SESSION_PREFIX.$scanId);
+        if (!\is_array($card) || (time() - (int) ($card['time'] ?? 0)) > self::SCAN_TTL) {
+            return $this->error($this->l->t('Please read your identity card again.'));
+        }
+        $surname = IdCardParser::titleCase(trim($surname));
+        $givenNames = IdCardParser::titleCase(trim($givenNames));
+        if ('' === $surname || '' === $givenNames) {
+            return $this->error($this->l->t('The chip gave no name.'));
+        }
+        $cnp = preg_replace('/\D/', '', $personalNumber) ?? '';
+        if ('' !== $cnp && !IdCardParser::isValidCnp($cnp)) {
+            $cnp = '';
+        }
+        if (preg_match('/^\d{6}$/', $dateOfExpiry)) {
+            $expiry = \DateTimeImmutable::createFromFormat('ymd', $dateOfExpiry);
+            if ($expiry && $expiry < new \DateTimeImmutable('today')) {
+                return $this->error($this->l->t('This identity card has expired.'));
+            }
+        }
+        // the chip is authoritative: the name from it replaces what the camera read
+        $changed = IdCardParser::stripDiacritics(mb_strtolower($surname.'|'.$givenNames))
+            !== IdCardParser::stripDiacritics(mb_strtolower((string) $card['surname'].'|'.(string) $card['givenNames']));
+        if ($changed) {
+            $this->logger->info('idregister: the chip corrected the name read by the camera');
+        }
+        $card['surname'] = $surname;
+        $card['givenNames'] = $givenNames;
+        if ('' !== $cnp) {
+            $card['cnp'] = $cnp;
+            $birth = IdCardParser::birthDateFromCnp($cnp);
+            $card['birthDate'] = null !== $birth ? $birth->format('Y-m-d') : (string) ($card['birthDate'] ?? '');
+            $card['age'] = IdCardParser::ageFromCnp($cnp);
+        }
+        $card['liveness'] = 'chip';
+        $card['chipDocument'] = mb_substr(preg_replace('/[^A-Z0-9]/', '', strtoupper($documentNumber)) ?? '', 0, 12);
+
+        // the photo on the chip: the face the selfie is compared with (better than the printed one)
+        $needsSelfie = (bool) $this->settings->get('requireSelfie') && $this->faceMatch->available();
+        $file = $this->request->getUploadedFile('face');
+        if ($needsSelfie && null !== $file && isset($file['tmp_name']) && is_uploaded_file($file['tmp_name']) && ($file['size'] ?? 0) <= 2 * 1024 * 1024) {
+            $data = (string) file_get_contents($file['tmp_name']);
+            @unlink($file['tmp_name']);
+            $face = $this->faceMatch->describe($data, 0.05);
+            unset($data);
+            if (\count($face['vector']) > 0) {
+                $card['faceVector'] = $face['vector'];
+                $card['selfie'] = '';
+            }
+        }
+        $this->session->set(self::SESSION_PREFIX.$scanId, $card);
+
+        return new JSONResponse([
+            'ok' => true,
+            'surname' => $surname,
+            'givenNames' => $givenNames,
+            'needsSelfie' => $needsSelfie && '' === (string) ($card['selfie'] ?? ''),
+            'corrected' => $changed,
+        ], Http::STATUS_OK);
     }
 
     /**
@@ -341,7 +421,7 @@ class ApiController extends Controller
                     'type' => (string) ($card['type'] ?? DocumentReader::TYPE_ID_CARD),
                     'birthDate' => (string) ($card['birthDate'] ?? ''),
                     'needsReview' => FaceMatch::VERDICT_REVIEW === ($card['selfie'] ?? '')
-                    || ((bool) $this->settings->get('requirePhysical') && Liveness::VERDICT_OK !== (string) ($card['liveness'] ?? Liveness::VERDICT_UNSURE)),
+                    || ((bool) $this->settings->get('requirePhysical') && !\in_array((string) ($card['liveness'] ?? Liveness::VERDICT_UNSURE), [Liveness::VERDICT_OK, 'chip'], true)),
                     'selfieDistance' => (float) ($card['selfieDistance'] ?? 0),
                 ],
                 $email,
@@ -393,7 +473,7 @@ class ApiController extends Controller
                 'type' => (string) ($card['type'] ?? DocumentReader::TYPE_ID_CARD),
                 'birthDate' => (string) ($card['birthDate'] ?? ''),
                 'needsReview' => FaceMatch::VERDICT_REVIEW === ($card['selfie'] ?? '')
-                    || ((bool) $this->settings->get('requirePhysical') && Liveness::VERDICT_OK !== (string) ($card['liveness'] ?? Liveness::VERDICT_UNSURE)),
+                    || ((bool) $this->settings->get('requirePhysical') && !\in_array((string) ($card['liveness'] ?? Liveness::VERDICT_UNSURE), [Liveness::VERDICT_OK, 'chip'], true)),
                 'selfieDistance' => (float) ($card['selfieDistance'] ?? 0),
             ]);
             $this->session->remove(self::SESSION_PREFIX.$scanId);

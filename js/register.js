@@ -27,6 +27,28 @@
 	var serverSaysMobile = initial('mobile', false);
 	var mobileOnly = initial('mobileOnly', true);
 	var handoff = initial('handoff', '');
+	var appUrl = initial('appUrl', '');
+	// the phone app finished: this browser signs in as the new account (see followHandoff)
+	var takeOver = /[?&]take=1/.test(window.location.search) && '' !== handoff;
+	var struggles = 0;
+	/** Suggested once, when the scan in the browser does not get anywhere: the native app reads better. */
+	function suggestApp(why) {
+		if (!appUrl) { return; }
+		struggles += 1;
+		if (struggles < (why === 'camera' ? 1 : 2) || $('idreg-app-hint')) { return; }
+		var hint = document.createElement('p');
+		hint.className = 'idreg-hint idreg-app-hint';
+		hint.id = 'idreg-app-hint';
+		var link = document.createElement('a');
+		link.href = appUrl;
+		link.target = '_blank';
+		link.rel = 'noopener';
+		link.textContent = t('Install the registration app');
+		hint.appendChild(document.createTextNode(t('Does it not work in the browser?') + ' '));
+		hint.appendChild(link);
+		var cam = $('idreg-cam');
+		cam.parentNode.insertBefore(hint, cam.nextSibling);
+	}
 
 	var state = { file: null, selfie: null, card: null, scanId: '', token: '', email: '', language: (document.documentElement.lang || 'en') };
 	var passwordOk = false;
@@ -223,6 +245,15 @@
 		}, 3000);
 	}
 
+	if (takeOver) {
+		step(0);
+		$('idreg-qr').parentNode.hidden = true;
+		$('idreg-qr-url').hidden = true;
+		message(t('Finishing your registration …'), null);
+		followHandoff(handoff);
+		return;
+	}
+
 	if (mobileOnly && !isHandheld()) {
 		step(0);
 		post('/api/handoff', {}).then(function (data) {
@@ -398,6 +429,7 @@
 						$('idreg-use').disabled = true;
 						return;
 					}
+					if (data.frames >= 40 && !data.done) { suggestApp('slow'); }
 					$('idreg-use').disabled = !(cam.lines >= 3 || data.frames > 0);
 					if (data.done) {
 						if (data.ok) {
@@ -406,6 +438,7 @@
 						} else {
 							// read, but not good enough (name not confirmed, too young …): say why and keep looking
 							message(data.message || t('The identity card could not be read. Try again with more light and the whole card in the frame.'), 'error');
+							suggestApp('read');
 							cam.first = true;
 						}
 					} else if (final && data.message) {
@@ -428,6 +461,7 @@
 	}
 
 	function showPhotoFallback(why) {
+		suggestApp('camera');
 		cam.box.classList.add('off');
 		setStatus(why || t('The camera could not be started. Take a picture instead.'), 0);
 		$('idreg-photo').hidden = false;

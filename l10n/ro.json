@@ -256,7 +256,13 @@
         "This looks like a picture on a screen. Please use the physical document.": "Pare o poză de pe un ecran. Te rugăm să folosești actul fizic.",
         "Tilt the document a little, left and right": "Înclină puțin actul, stânga-dreapta",
         "Close the camera": "Închide camera",
-        "Require the physical document: black-and-white copies and pictures on a screen are refused; when nothing proves the card real, the visitor is asked to tilt it, and if still unsure an administrator reviews the registration": "Cere actul fizic: copiile alb-negru și pozele de pe ecran sunt refuzate; când nimic nu dovedește că actul e real, vizitatorul e rugat să-l încline, iar dacă tot nu e sigur, un administrator verifică înregistrarea"
+        "Require the physical document: black-and-white copies and pictures on a screen are refused; when nothing proves the card real, the visitor is asked to tilt it, and if still unsure an administrator reviews the registration": "Cere actul fizic: copiile alb-negru și pozele de pe ecran sunt refuzate; când nimic nu dovedește că actul e real, vizitatorul e rugat să-l încline, iar dacă tot nu e sigur, un administrator verifică înregistrarea",
+        "Install the registration app": "Instalează aplicația de înregistrare",
+        "Does it not work in the browser?": "Nu merge din browser?",
+        "Finishing your registration …": "Finalizez înregistrarea …",
+        "The chip gave no name.": "Cipul nu a dat niciun nume.",
+        "This identity card has expired.": "Această carte de identitate a expirat.",
+        "Android app (suggested when the scan in the browser struggles; empty = never)": "Aplicația Android (sugerată când scanarea din browser nu reușește; gol = niciodată)"
     },
     "pluralForm": "nplurals=3; plural=(n==1?0:(((n%100>19)||((n%100==0)&&(n!=0)))?2:1));"
 }

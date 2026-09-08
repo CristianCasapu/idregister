@@ -1,6 +1,12 @@
 OC.L10N.register(
     "idregister",
     {
+    "Install the registration app": "Instalează aplicația de înregistrare",
+    "Does it not work in the browser?": "Nu merge din browser?",
+    "Finishing your registration …": "Finalizez înregistrarea …",
+    "The chip gave no name.": "Cipul nu a dat niciun nume.",
+    "This identity card has expired.": "Această carte de identitate a expirat.",
+    "Android app (suggested when the scan in the browser struggles; empty = never)": "Aplicația Android (sugerată când scanarea din browser nu reușește; gol = niciodată)",
     "This looks like a black-and-white copy. Please use the physical document.": "Pare o copie alb-negru. Te rugăm să folosești actul fizic.",
     "This looks like a picture on a screen. Please use the physical document.": "Pare o poză de pe un ecran. Te rugăm să folosești actul fizic.",
     "Tilt the document a little, left and right": "Înclină puțin actul, stânga-dreapta",

@@ -89,6 +89,7 @@
 			+ '<label><input type="checkbox" id="cfg-licence"' + (config.acceptDrivingLicence ? ' checked' : '') + '> ' + esc(t('Driving licence')) + '</label></div>'
 			+ '<h3>' + esc(t('Selfie')) + '</h3>'
 			+ '<p class="muted">' + esc(faces.available ? t('Face matching ready') : t('Face matching is not available: install InsightFace (the Recognize app sets it up).')) + '</p>'
+			+ '<div class="idreg-admin-row"><label>' + esc(t('Android app (suggested when the scan in the browser struggles; empty = never)')) + ' <input type="url" id="cfg-appurl" size="48" value="' + esc(config.androidAppUrl || '') + '"></label></div>'
 			+ '<div class="idreg-admin-row"><label><input type="checkbox" id="cfg-physical"' + (config.requirePhysical ? ' checked' : '') + '> ' + esc(t('Require the physical document: black-and-white copies and pictures on a screen are refused; when nothing proves the card real, the visitor is asked to tilt it, and if still unsure an administrator reviews the registration')) + '</label></div>'
 			+ '<div class="idreg-admin-row"><label><input type="checkbox" id="cfg-selfie"' + (config.requireSelfie ? ' checked' : '') + (faces.available ? '' : ' disabled') + '> ' + esc(t('Ask for a selfie and compare it with the photo on the document')) + '</label></div>'
 			+ '<div class="idreg-admin-row"><label>' + esc(t('Sure match up to (distance)')) + ' <input type="number" id="cfg-match" min="0.5" max="2" step="0.05" value="' + esc(config.selfieMatchDistance) + '"></label>'
@@ -133,6 +134,7 @@
 		document.getElementById('cfg-licence').addEventListener('change', function (e) { save({ acceptDrivingLicence: e.target.checked }); });
 		document.getElementById('cfg-selfie').addEventListener('change', function (e) { save({ requireSelfie: e.target.checked }); });
 		document.getElementById('cfg-physical').addEventListener('change', function (e) { save({ requirePhysical: e.target.checked }); });
+		document.getElementById('cfg-appurl').addEventListener('change', function (e) { save({ androidAppUrl: e.target.value.trim() }); });
 		document.getElementById('cfg-groups').addEventListener('change', function (e) {
 			var picked = Array.prototype.filter.call(e.target.options, function (o) { return o.selected; }).map(function (o) { return o.value; });
 			save({ defaultGroups: picked.join(',') });

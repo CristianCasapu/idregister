@@ -76,6 +76,14 @@ final class LiveScan
             }
         }
         $state['card'] = IdCardParser::merge($state['card'], $frameCard);
+        // the six-digit access number of the electronic card (under the expiry date): the phone app
+        // uses it to open the chip through NFC; a line that is exactly six digits, not part of the CNP
+        foreach ($lines as $line) {
+            $digits = IdCardParser::fixDigits(trim($line));
+            if (preg_match('/^\d{6}$/', $digits) && !str_contains($state['card']['cnp'], $digits)) {
+                $state['can'] = $digits;
+            }
+        }
         if ($frameCard['cnpSure']) {
             if ($frameCard['cnp'] === $state['stableCnp']) {
                 ++$state['stableCount'];
@@ -188,6 +196,7 @@ final class LiveScan
         $looksLikeLicence = \is_array($state) && $state['looksLikeLicence'] >= 1;
 
         $cardResult = [
+            'can' => \is_array($state) ? (string) ($state['can'] ?? '') : '',
             'type' => DocumentReader::TYPE_ID_CARD,
             'surname' => $card['surname'],
             'givenNames' => $card['givenNames'],

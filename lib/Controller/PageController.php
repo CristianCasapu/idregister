@@ -62,6 +62,7 @@ class PageController extends Controller
         $this->initialState->provideInitialState('mobile', $mobile);
         $this->initialState->provideInitialState('mobileOnly', (bool) $this->settings->get('mobileOnly'));
         $this->initialState->provideInitialState('handoff', $handoffToken);
+        $this->initialState->provideInitialState('appUrl', (string) $this->settings->get('androidAppUrl'));
         $this->initialState->provideInitialState('registrationOpen', (bool) $this->settings->get('registrationOpen'));
         $this->initialState->provideInitialState('requireApproval', (bool) $this->settings->get('requireApproval'));
         $this->initialState->provideInitialState('conditions', [

@@ -597,3 +597,7 @@ html.idreg-cam-open, html.idreg-cam-open body { overflow: hidden; }
 	50% { transform: translateY(-50%) rotate(8deg); }
 }
 
+
+/* the native app, suggested when the scan in the browser gets nowhere */
+.idreg-app-hint { font-weight: 600; }
+.idreg-app-hint a { text-decoration: underline; }
