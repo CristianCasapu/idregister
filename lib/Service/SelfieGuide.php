@@ -26,6 +26,8 @@ final class SelfieGuide
     private const OVAL_CY = 0.5;
     private const OVAL_RX = 0.5 / 1.35;
     private const OVAL_RY = 0.5 / 1.25;
+    /** how far the head must turn (degrees of yaw) to count as a turn */
+    private const TURN_DEGREES = 18.0;
 
     public function __construct(
         private FaceMatch $faceMatch,
@@ -39,17 +41,22 @@ final class SelfieGuide
      */
     public function guide(string $jpeg, string $phase = 'front'): array
     {
-        $found = $this->detect($jpeg);
-        $face = $found['face'];
         if ('turn' === $phase) {
-            // the head turned to the side: a profile at least as wide as a decent face, or the frontal face gone while a profile shows
-            $turned = $found['profile'] >= 0.28 && (null === $face || $found['profile'] >= $face['w'] * 0.8);
+            // the head turned: the yaw from the 3D landmarks of the face model (a profile cascade fires on
+            // frontal faces too, so it is no proof); about two seconds per frame, only during this phase
+            $described = $this->faceMatch->describe($jpeg, 0.08);
+            $pose = $described['pose'] ?? null;
+            $yaw = \is_array($pose) && isset($pose[1]) ? abs((float) $pose[1]) : 0.0;
+            $turned = \count($described['vector']) > 0 && $yaw >= self::TURN_DEGREES;
+            $face = null;
             if ($turned) {
                 return ['status' => $this->l->t('Good — now look at the camera again'), 'level' => 2, 'good' => false, 'turned' => true, 'face' => $face];
             }
 
             return ['status' => $this->l->t('Turn your head a little to the left or to the right'), 'level' => 1, 'good' => false, 'turned' => false, 'face' => $face];
         }
+        $found = $this->detect($jpeg);
+        $face = $found['face'];
         if (null === $face) {
             return ['status' => $this->l->t('Put your face inside the oval'), 'level' => 0, 'good' => false, 'face' => null];
         }

@@ -80,6 +80,8 @@ def main():
         'score': float(best.det_score),
         'box': {'x': box[0], 'y': box[1], 'width': box[2], 'height': box[3]},
         'faces': len(faces),
+        # head pose in degrees [pitch, yaw, roll] from the 3D landmarks (the head turn of the selfie)
+        'pose': [round(float(v), 1) for v in best.pose] if getattr(best, 'pose', None) is not None else None,
     }), flush=True)
 
 

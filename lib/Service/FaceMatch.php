@@ -117,6 +117,8 @@ final class FaceMatch
                 'vector' => array_map('floatval', $data['vector'] ?? []),
                 'faces' => (int) ($data['faces'] ?? 0),
                 'error' => (string) ($data['error'] ?? ''),
+                // [pitch, yaw, roll] in degrees, when the model gave them
+                'pose' => \is_array($data['pose'] ?? null) ? array_map('floatval', $data['pose']) : null,
             ];
         } finally {
             @unlink($file);
