@@ -300,6 +300,7 @@
 	}
 
 	function stopCamera() {
+		if (!cam) { return; } // the desktop hand-off shows the QR before the camera objects exist
 		cam.running = false;
 		if (cam.stream) {
 			cam.stream.getTracks().forEach(function (tr) { tr.stop(); });
@@ -575,6 +576,7 @@
 	}
 
 	function stopSelfieCamera() {
+		if (!selfie) { return; }
 		selfie.running = false;
 		if (selfie.timer) { window.clearInterval(selfie.timer); selfie.timer = null; }
 		if (selfie.stream) {
