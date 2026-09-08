@@ -119,6 +119,8 @@ final class FaceMatch
                 'error' => (string) ($data['error'] ?? ''),
                 // [pitch, yaw, roll] in degrees, when the model gave them
                 'pose' => \is_array($data['pose'] ?? null) ? array_map('floatval', $data['pose']) : null,
+                // the face box, relative to the picture (0..1)
+                'box' => \is_array($data['box'] ?? null) ? ['x' => (float) $data['box']['x'], 'y' => (float) $data['box']['y'], 'w' => (float) $data['box']['width'], 'h' => (float) $data['box']['height']] : null,
             ];
         } finally {
             @unlink($file);

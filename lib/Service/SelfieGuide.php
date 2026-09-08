@@ -58,6 +58,13 @@ final class SelfieGuide
         $found = $this->detect($jpeg);
         $face = $found['face'];
         if (null === $face) {
+            // the quick cascade gives up in poor light or with an unusual pose; the face model does not (a second more)
+            $described = $this->faceMatch->describe($jpeg, 0.08);
+            if (\count($described['vector']) > 0 && null !== ($described['box'] ?? null)) {
+                $face = $described['box'];
+            }
+        }
+        if (null === $face) {
             return ['status' => $this->l->t('Put your face inside the oval'), 'level' => 0, 'good' => false, 'face' => null];
         }
         $cx = $face['x'] + $face['w'] / 2;
