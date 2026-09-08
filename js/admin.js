@@ -83,6 +83,7 @@
 			+ '<div class="idreg-admin-row"><label><input type="checkbox" id="cfg-approval"' + (config.requireApproval ? ' checked' : '') + '> ' + esc(t('An administrator has to approve every new account')) + '</label></div>'
 			+ '<div class="idreg-admin-row"><label><input type="checkbox" id="cfg-onecard"' + (config.oneAccountPerCard ? ' checked' : '') + '> ' + esc(t('One account per identity card')) + '</label></div>'
 			+ '<div class="idreg-admin-row"><label><input type="checkbox" id="cfg-mobileonly"' + (config.mobileOnly ? ' checked' : '') + '> ' + esc(t('Registration only from a phone or a tablet (a computer gets a QR code)')) + '</label></div>'
+			+ '<div class="idreg-admin-row"><label><input type="checkbox" id="cfg-express"' + (config.expressMode ? ' checked' : '') + '> ' + esc(t('Express: the account is created right after the document and the selfie, with a random user name and password kept by the browser; e-mail, phone and nickname are added in the profile')) + '</label></div>'
 			+ '<h3>' + esc(t('Accepted documents')) + '</h3>'
 			+ '<div class="idreg-admin-row"><label><input type="checkbox" id="cfg-idcard"' + (config.acceptIdCard ? ' checked' : '') + '> ' + esc(t('Identity card')) + '</label>'
 			+ '<label><input type="checkbox" id="cfg-licence"' + (config.acceptDrivingLicence ? ' checked' : '') + '> ' + esc(t('Driving licence')) + '</label></div>'
@@ -126,6 +127,7 @@
 		document.getElementById('cfg-phone').addEventListener('change', function (e) { save({ requirePhone: e.target.checked }); });
 		document.getElementById('cfg-notify').addEventListener('change', function (e) { save({ notifyAdmins: e.target.checked }); });
 		document.getElementById('cfg-mobileonly').addEventListener('change', function (e) { save({ mobileOnly: e.target.checked }); });
+		document.getElementById('cfg-express').addEventListener('change', function (e) { save({ expressMode: e.target.checked }); });
 		document.getElementById('cfg-idcard').addEventListener('change', function (e) { save({ acceptIdCard: e.target.checked }); });
 		document.getElementById('cfg-licence').addEventListener('change', function (e) { save({ acceptDrivingLicence: e.target.checked }); });
 		document.getElementById('cfg-selfie').addEventListener('change', function (e) { save({ requireSelfie: e.target.checked }); });

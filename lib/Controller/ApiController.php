@@ -344,6 +344,53 @@ class ApiController extends Controller
         }
     }
 
+    /**
+     * Express: the account is created now, from the document (and the selfie) alone.
+     */
+    #[UseSession]
+    #[PublicPage]
+    #[AnonRateLimit(limit: 5, period: 3600)]
+    public function express(string $scanId = '', string $handoff = '', bool $terms = false): JSONResponse
+    {
+        if (!$this->settings->get('expressMode')) {
+            return $this->error($this->l->t('Registration is currently closed.'));
+        }
+        if (!$terms) {
+            return $this->error($this->l->t('Please accept how your data is used.'));
+        }
+        $card = $this->session->get(self::SESSION_PREFIX.$scanId);
+        if (!\is_array($card) || (time() - (int) ($card['time'] ?? 0)) > self::SCAN_TTL) {
+            return $this->error($this->l->t('Please read your identity card again.'));
+        }
+        if ((bool) $this->settings->get('requireSelfie') && $this->faceMatch->available() && '' === (string) ($card['selfie'] ?? '')) {
+            return $this->error($this->l->t('Please take the selfie first.'));
+        }
+
+        try {
+            $result = $this->registration->express([
+                'surname' => (string) $card['surname'],
+                'givenNames' => (string) $card['givenNames'],
+                'cnp' => (string) $card['cnp'],
+                'type' => (string) ($card['type'] ?? DocumentReader::TYPE_ID_CARD),
+                'birthDate' => (string) ($card['birthDate'] ?? ''),
+                'needsReview' => FaceMatch::VERDICT_REVIEW === ($card['selfie'] ?? ''),
+                'selfieDistance' => (float) ($card['selfieDistance'] ?? 0),
+            ]);
+            $this->session->remove(self::SESSION_PREFIX.$scanId);
+            if ('' !== $handoff) {
+                $this->handoff->advance($handoff, Handoff::STATE_CONFIRMED, $result['name']);
+            }
+
+            return new JSONResponse(['ok' => true] + $result, Http::STATUS_OK);
+        } catch (\InvalidArgumentException $e) {
+            return $this->error($e->getMessage());
+        } catch (\Throwable $e) {
+            $this->logger->error('idregister: express registration failed', ['exception' => $e]);
+
+            return $this->error($this->l->t('Something went wrong. Please try again.'));
+        }
+    }
+
     #[PublicPage]
     #[AnonRateLimit(limit: 20, period: 3600)]
     public function verifyCode(string $token = '', string $code = '', string $handoff = ''): JSONResponse

@@ -72,6 +72,13 @@ declare(strict_types=1);
 				<input type="text" id="idreg-surname" readonly>
 			</div>
 			<p class="idreg-hint" id="idreg-doc-type"></p>
+			<label class="idreg-check" id="idreg-express-consent" hidden>
+				<input type="checkbox" id="idreg-terms-express">
+				<span>
+					<?php p($l->t('I agree that my name is taken from my identity card and an account is created for me. The picture of the card, the selfie and my personal number are not kept.')); ?>
+					<a id="idreg-terms-link-express" href="#" target="_blank" rel="noopener" hidden><?php p($l->t('Read more')); ?></a>
+				</span>
+			</label>
 			<div class="idreg-buttons">
 				<button type="button" class="idreg-button" id="idreg-again"><?php p($l->t('Scan again')); ?></button>
 				<button type="button" class="idreg-button primary" id="idreg-confirm-card"><?php p($l->t('This is me')); ?></button>
@@ -167,6 +174,35 @@ declare(strict_types=1);
 				<input type="password" id="idreg-password2" autocomplete="new-password" required>
 			</div>
 			<button type="button" class="idreg-button primary" id="idreg-finish" disabled><?php p($l->t('Create the account')); ?></button>
+		</section>
+
+		<!-- 8: express — the account exists, the browser keeps the credentials -->
+		<section class="idreg-step" data-step="8" hidden>
+			<p class="idreg-lead" id="idreg-express-lead"><?php p($l->t('Your account is ready. These are your sign-in details; your browser will offer to remember them when you continue.')); ?></p>
+			<div class="idreg-field">
+				<label for="idreg-new-uid"><?php p($l->t('User name')); ?></label>
+				<div class="idreg-copy-wrap">
+					<input type="text" id="idreg-new-uid" readonly autocomplete="username">
+					<button type="button" class="idreg-copy" data-copy="idreg-new-uid" aria-label="<?php p($l->t('Copy')); ?>">⧉</button>
+				</div>
+			</div>
+			<div class="idreg-field">
+				<label for="idreg-new-password"><?php p($l->t('Password')); ?></label>
+				<div class="idreg-copy-wrap">
+					<input type="text" id="idreg-new-password" readonly autocomplete="new-password">
+					<button type="button" class="idreg-copy" data-copy="idreg-new-password" aria-label="<?php p($l->t('Copy')); ?>">⧉</button>
+				</div>
+			</div>
+			<p class="idreg-hint"><?php p($l->t('Write them down if your browser does not keep passwords. Next you add your e-mail address, phone number and a nickname in your profile.')); ?></p>
+			<form method="post" id="idreg-login-form" action="/index.php/login">
+				<input type="hidden" name="user" id="idreg-login-user" autocomplete="username">
+				<input type="hidden" name="password" id="idreg-login-password" autocomplete="current-password">
+				<input type="hidden" name="redirect_url" id="idreg-login-redirect" value="">
+				<input type="hidden" name="timezone" id="idreg-login-tz" value="">
+				<input type="hidden" name="timezone_offset" id="idreg-login-tzo" value="">
+				<button type="submit" class="idreg-button primary" id="idreg-continue"><?php p($l->t('Continue to my profile')); ?></button>
+			</form>
+			<p class="idreg-done" id="idreg-express-approval" hidden><?php p($l->t('An administrator still has to let you in. Keep your sign-in details; you can sign in as soon as the account is opened.')); ?></p>
 		</section>
 
 		<!-- 7: done -->

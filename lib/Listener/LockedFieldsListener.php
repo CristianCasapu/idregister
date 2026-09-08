@@ -23,6 +23,8 @@ final class LockedFieldsListener implements IEventListener
 {
     /** guards against reacting to our own correction */
     private static bool $restoring = false;
+    /** set by Service\Profile while it stores an address that was confirmed with a code */
+    public static bool $allow = false;
 
     public function __construct(
         private IDBConnection $db,
@@ -33,7 +35,7 @@ final class LockedFieldsListener implements IEventListener
 
     public function handle(Event $event): void
     {
-        if (!$event instanceof UserChangedEvent || self::$restoring) {
+        if (!$event instanceof UserChangedEvent || self::$restoring || self::$allow) {
             return;
         }
         // Nextcloud calls them "displayName" and "eMailAddress"
@@ -48,7 +50,15 @@ final class LockedFieldsListener implements IEventListener
         }
 
         $expected = 'displayName' === $feature ? $locked['display_name'] : $locked['email'];
-        if ('' === $expected || (string) $event->getValue() === $expected) {
+        if ((string) $event->getValue() === $expected) {
+            return;
+        }
+        if ('' === $expected && 'displayName' === $feature) {
+            return;
+        }
+        // an express account has no address yet: it is added in the profile, confirmed with a
+        // code, and never through the plain field
+        if ('' === $expected && 'eMailAddress' === $feature && '' === (string) $event->getValue()) {
             return;
         }
 

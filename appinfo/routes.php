@@ -16,6 +16,13 @@ return [
         ['name' => 'api#finish', 'url' => '/api/finish', 'verb' => 'POST'],
         ['name' => 'api#handoffCreate', 'url' => '/api/handoff', 'verb' => 'POST'],
         ['name' => 'api#handoffStatus', 'url' => '/api/handoff/{token}', 'verb' => 'GET'],
+        ['name' => 'api#express', 'url' => '/api/express', 'verb' => 'POST'],
+        // the profile an express account completes after signing in
+        ['name' => 'profile#state', 'url' => '/api/profile', 'verb' => 'GET'],
+        ['name' => 'profile#email', 'url' => '/api/profile/email', 'verb' => 'POST'],
+        ['name' => 'profile#emailConfirm', 'url' => '/api/profile/email/confirm', 'verb' => 'POST'],
+        ['name' => 'profile#phone', 'url' => '/api/profile/phone', 'verb' => 'POST'],
+        ['name' => 'profile#nickname', 'url' => '/api/profile/nickname', 'verb' => 'POST'],
         // administration
         ['name' => 'admin#config', 'url' => '/api/admin/config', 'verb' => 'GET'],
         ['name' => 'admin#setConfig', 'url' => '/api/admin/config', 'verb' => 'PUT'],

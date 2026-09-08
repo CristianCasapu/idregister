@@ -56,6 +56,9 @@ final class Settings
         'insightfaceRoot' => '',
         // registration only from a phone or tablet; a desktop gets a QR code
         'mobileOnly' => true,
+        // express: the account is created right after the document (and the selfie), with a random
+        // user name and password kept by the browser; e-mail, phone and nickname are added in the profile
+        'expressMode' => true,
     ];
 
     public function __construct(private IAppConfig $config) {}

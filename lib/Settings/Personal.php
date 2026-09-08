@@ -18,6 +18,7 @@ final class Personal implements ISettings
         private IInitialState $initialState,
         private IUserSession $userSession,
         private IDBConnection $db,
+        private \OCA\IdRegister\Service\Profile $profile,
     ) {}
 
     public function getForm(): TemplateResponse
@@ -39,6 +40,7 @@ final class Personal implements ISettings
             }
         }
         $this->initialState->provideInitialState('locked', $locked);
+        $this->initialState->provideInitialState('profile', null !== $user && null !== $locked ? $this->profile->state($user) : null);
 
         return new TemplateResponse(Application::APP_ID, 'personal');
     }

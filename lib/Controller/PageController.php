@@ -72,6 +72,7 @@ class PageController extends Controller
             'requireSelfie' => (bool) $this->settings->get('requireSelfie') && $this->faceMatch->available(),
             'acceptIdCard' => (bool) $this->settings->get('acceptIdCard'),
             'acceptDrivingLicence' => (bool) $this->settings->get('acceptDrivingLicence'),
+            'express' => (bool) $this->settings->get('expressMode'),
         ]);
         $this->initialState->provideInitialState('ocr', $this->ocr->engineStatus()['ok']);
         $this->initialState->provideInitialState('loginUrl', $this->urlGenerator->linkToRouteAbsolute('core.login.showLoginForm'));

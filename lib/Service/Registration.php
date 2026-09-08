@@ -79,37 +79,11 @@ final class Registration
         if ('' === $phone && $phoneRequired) {
             throw new \InvalidArgumentException($this->l->t('This phone number is not valid.'));
         }
-        // conditions the administrator set
-        $isIdCard = DocumentReader::TYPE_ID_CARD === ($card['type'] ?? DocumentReader::TYPE_ID_CARD);
-        if ($isIdCard && $this->settings->get('requireValidCnp') && !IdCardParser::isValidCnp($card['cnp'])) {
-            throw new \InvalidArgumentException($this->l->t('The personal number could not be read from the card. Take the picture again, straight and in good light.'));
-        }
-        $minAge = (int) $this->settings->get('minAge');
-        if ($minAge > 0) {
-            $age = self::ageOf($card);
-            if (null === $age || $age < $minAge) {
-                throw new \InvalidArgumentException($this->l->t('You have to be at least %d years old to register here.', [$minAge]));
-            }
-        }
-        $maxAccounts = (int) $this->settings->get('maxAccounts');
-        if ($maxAccounts > 0 && \count($this->mapper->findAll()) >= $maxAccounts) {
-            throw new \InvalidArgumentException($this->l->t('Registration is closed: the number of accounts that can be created this way has been reached.'));
-        }
+        $cnpHash = $this->guardCard($card, $surname, $given);
 
-        // one account per person / per address
+        // one account per address
         if (\count($this->userManager->getByEmail($email)) > 0 || null !== $this->mapper->findByEmail($email)) {
             throw new \InvalidArgumentException($this->l->t('An account with this e-mail address already exists.'));
-        }
-        // One document, one account. With a personal number the hash is exact; a driving licence
-        // has none, so the name and the date of birth stand in for it.
-        $cnpHash = '';
-        if ('' !== $card['cnp']) {
-            $cnpHash = hash('sha256', $card['cnp'].$this->settings->cnpSecret());
-        } elseif ('' !== (string) ($card['birthDate'] ?? '')) {
-            $cnpHash = hash('sha256', mb_strtolower($surname.'|'.$given.'|'.$card['birthDate']).$this->settings->cnpSecret());
-        }
-        if ('' !== $cnpHash && $this->settings->get('oneAccountPerCard') && null !== $this->mapper->findByCnpHash($cnpHash)) {
-            throw new \InvalidArgumentException($this->l->t('An account was already created with this identity card.'));
         }
 
         // No account is created yet: the visitor first has to prove the e-mail address is theirs,
@@ -147,6 +121,195 @@ final class Registration
         $this->logger->info('idregister: registration started for '.$email.($pending->getNeedsReview() ? ' — the selfie needs a look' : ''));
 
         return ['token' => $pending->getToken(), 'email' => $email];
+    }
+
+    /**
+     * The conditions the administrator set for the document itself, and the "one document,
+     * one account" hash. Shared by the classic and the express registration.
+     *
+     * @return string the hash standing for the document ('' when there is nothing to hash)
+     */
+    private function guardCard(array $card, string $surname, string $given): string
+    {
+        $isIdCard = DocumentReader::TYPE_ID_CARD === ($card['type'] ?? DocumentReader::TYPE_ID_CARD);
+        if ($isIdCard && $this->settings->get('requireValidCnp') && !IdCardParser::isValidCnp($card['cnp'])) {
+            throw new \InvalidArgumentException($this->l->t('The personal number could not be read from the card. Take the picture again, straight and in good light.'));
+        }
+        $minAge = (int) $this->settings->get('minAge');
+        if ($minAge > 0) {
+            $age = self::ageOf($card);
+            if (null === $age || $age < $minAge) {
+                throw new \InvalidArgumentException($this->l->t('You have to be at least %d years old to register here.', [$minAge]));
+            }
+        }
+        $maxAccounts = (int) $this->settings->get('maxAccounts');
+        if ($maxAccounts > 0 && \count($this->mapper->findAll()) >= $maxAccounts) {
+            throw new \InvalidArgumentException($this->l->t('Registration is closed: the number of accounts that can be created this way has been reached.'));
+        }
+        // One document, one account. With a personal number the hash is exact; a driving licence
+        // has none, so the name and the date of birth stand in for it.
+        $cnpHash = '';
+        if ('' !== $card['cnp']) {
+            $cnpHash = hash('sha256', $card['cnp'].$this->settings->cnpSecret());
+        } elseif ('' !== (string) ($card['birthDate'] ?? '')) {
+            $cnpHash = hash('sha256', mb_strtolower($surname.'|'.$given.'|'.$card['birthDate']).$this->settings->cnpSecret());
+        }
+        if ('' !== $cnpHash && $this->settings->get('oneAccountPerCard') && null !== $this->mapper->findByCnpHash($cnpHash)) {
+            throw new \InvalidArgumentException($this->l->t('An account was already created with this identity card.'));
+        }
+
+        return $cnpHash;
+    }
+
+    /**
+     * Express registration: the account exists as soon as the document (and the selfie) are
+     * accepted, with a random user name and a random password that the browser keeps. The
+     * e-mail address, the phone number and a nickname are added afterwards, in the profile.
+     *
+     * @return array{status:string, uid:string, password:string, name:string}
+     *
+     * @throws \InvalidArgumentException on anything the visitor can fix
+     */
+    public function express(array $card): array
+    {
+        if (!$this->settings->get('registrationOpen')) {
+            throw new \InvalidArgumentException($this->l->t('Registration is currently closed.'));
+        }
+        $surname = trim($card['surname']);
+        $given = trim($card['givenNames']);
+        if ('' === $surname || '' === $given) {
+            throw new \InvalidArgumentException($this->l->t('The name could not be read from the identity card.'));
+        }
+        $cnpHash = $this->guardCard($card, $surname, $given);
+
+        $uid = $this->randomUid($given);
+        $password = self::randomPassword();
+        try {
+            $user = $this->userManager->createUser($uid, $password);
+        } catch (\Throwable $e) {
+            throw new \RuntimeException('The account could not be created: '.$e->getMessage(), 0, $e);
+        }
+        if (!$user instanceof IUser) {
+            throw new \RuntimeException('The account could not be created');
+        }
+        $fullName = IdCardParser::titleCase($given).' '.IdCardParser::titleCase($surname);
+        $user->setDisplayName($fullName);
+        if ('' !== (string) $this->settings->get('quota')) {
+            $user->setQuota((string) $this->settings->get('quota'));
+        }
+
+        $now = $this->time->getTime();
+        $pending = new PendingRegistration();
+        $pending->setUid($uid);
+        $pending->setSurname(IdCardParser::titleCase($surname));
+        $pending->setGivenNames(IdCardParser::titleCase($given));
+        $pending->setEmail('');
+        $pending->setPhone('');
+        $pending->setCnpHash($cnpHash);
+        $pending->setToken($this->random->generate(32, ISecureRandom::CHAR_ALPHANUMERIC));
+        $pending->setCode('');
+        $pending->setAttempts(0);
+        $pending->setDocumentType((string) ($card['type'] ?? DocumentReader::TYPE_ID_CARD));
+        $pending->setNeedsReview((bool) ($card['needsReview'] ?? false));
+        $pending->setSelfieDistance((float) ($card['selfieDistance'] ?? 0));
+        $pending->setCreatedAt($now);
+        $pending->setExpiresAt($now);
+        // the name is fixed from now on; the address and the phone are locked once they are set
+        $this->lock($pending);
+
+        if ($this->settings->get('requireApproval') || $pending->getNeedsReview()) {
+            $user->setEnabled(false);
+            $pending->setStatus(PendingRegistration::STATUS_AWAITING_APPROVAL);
+            $pending = $this->mapper->insert($pending);
+            $this->notifyAdmins($pending);
+            $this->mailAdmins($pending, true);
+        } else {
+            foreach ($this->settings->groups() as $group) {
+                if ($this->groupManager->groupExists($group)) {
+                    $this->groupManager->get($group)?->addUser($user);
+                }
+            }
+            $pending->setStatus(PendingRegistration::STATUS_ACTIVE);
+            $pending = $this->mapper->insert($pending);
+            $this->mailAdmins($pending, false);
+        }
+        $this->logger->info('idregister: account '.$uid.' created directly from the document ('.$pending->getStatus().')');
+
+        return ['status' => $pending->getStatus(), 'uid' => $uid, 'password' => $password, 'name' => $fullName];
+    }
+
+    /** "ion-k4x9m": the first name, so the visitor recognises it, plus a random tail */
+    private function randomUid(string $given): string
+    {
+        $first = IdCardParser::stripDiacritics(explode(' ', trim($given))[0] ?? $given);
+        $first = trim(preg_replace('/[^a-z0-9]+/', '-', mb_strtolower($first)) ?? '', '-');
+        if ('' === $first) {
+            $first = 'user';
+        }
+        $first = substr($first, 0, 20);
+        do {
+            $uid = $first.'-'.$this->random->generate(5, 'abcdefghjkmnpqrstuvwxyz23456789');
+        } while ($this->userManager->userExists($uid));
+
+        return $uid;
+    }
+
+    /** 16 characters with both cases, digits and symbols, without look-alike characters */
+    public static function randomPassword(): string
+    {
+        $sets = ['abcdefghijkmnpqrstuvwxyz', 'ABCDEFGHJKLMNPQRSTUVWXYZ', '23456789', '!@#$%&*+-=?'];
+        $all = implode('', $sets);
+        $chars = [];
+        foreach ($sets as $set) {
+            $chars[] = $set[random_int(0, \strlen($set) - 1)];
+        }
+        while (\count($chars) < 16) {
+            $chars[] = $all[random_int(0, \strlen($all) - 1)];
+        }
+        shuffle($chars);
+
+        return implode('', $chars);
+    }
+
+    /** A confirmation code for an e-mail address added in the profile (express accounts). */
+    public function sendProfileCode(string $email, string $name, string $code, string $language): void
+    {
+        $ro = str_starts_with($language, 'ro');
+        $template = $this->mailer->createEMailTemplate('idregister.ProfileCode', ['code' => $code]);
+        $template->setSubject($ro ? 'Confirmă adresa de e-mail' : 'Confirm your e-mail address');
+        $template->addHeader();
+        $template->addHeading($ro ? 'Salut, '.$name : 'Hello, '.$name);
+        $template->addBodyText($ro
+            ? 'Codul pentru confirmarea adresei de e-mail este '.$code.'. Este valabil 30 de minute.'
+            : 'The code to confirm your e-mail address is '.$code.'. It is valid for 30 minutes.');
+        $template->addFooter($ro
+            ? 'Dacă nu tu ai cerut asta, ignoră mesajul: adresa nu se schimbă.'
+            : 'If you did not ask for this, ignore this message: nothing changes.');
+        $message = $this->mailer->createMessage();
+        $message->setTo([$email => $name]);
+        $message->useTemplate($template);
+        $failed = $this->mailer->send($message);
+        if (\count($failed) > 0) {
+            throw new \RuntimeException('the mail server refused '.implode(', ', $failed));
+        }
+    }
+
+    /** Values fixed after the express registration: the address once confirmed, the phone once set. */
+    public function lockValue(string $uid, string $column, string $value): void
+    {
+        if (!\in_array($column, ['email', 'phone'], true)) {
+            return;
+        }
+        $query = $this->db->getQueryBuilder();
+        $query->update('idregister_locked')->set($column, $query->createNamedParameter($value))
+            ->where($query->expr()->eq('uid', $query->createNamedParameter($uid)))->executeStatement();
+        try {
+            $pending = $this->mapper->findByUid($uid);
+            'email' === $column ? $pending->setEmail($value) : $pending->setPhone($value);
+            $this->mapper->update($pending);
+        } catch (\Throwable $e) {
+            // no registration row (account made another way)
+        }
     }
 
     /**
@@ -362,6 +525,17 @@ final class Registration
         } catch (\Throwable $e) {
             // already locked
         }
+    }
+
+    /** @return array{display_name:string, email:string, phone:string}|null */
+    public function lockedRow(string $uid): ?array
+    {
+        $query = $this->db->getQueryBuilder();
+        $query->select('display_name', 'email', 'phone')->from('idregister_locked')
+            ->where($query->expr()->eq('uid', $query->createNamedParameter($uid)));
+        $row = $query->executeQuery()->fetch();
+
+        return $row ? ['display_name' => (string) $row['display_name'], 'email' => (string) $row['email'], 'phone' => (string) $row['phone']] : null;
     }
 
     private function unlock(string $uid): void

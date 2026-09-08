@@ -502,3 +502,28 @@
 .idreg .idreg-spinner { justify-content: center; }
 .idreg-cam.selfie video { transform: scaleX(-1); }
 .idreg-cam.selfie { aspect-ratio: 3 / 4; }
+
+/* ---- express: the sign-in details ---- */
+.idreg-copy-wrap { position: relative; display: flex; align-items: center; }
+.idreg .idreg-copy-wrap input[type="text"] { padding-right: 48px; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; letter-spacing: 0.03em; }
+.idreg button.idreg-copy {
+	position: absolute;
+	right: 4px;
+	top: 50%;
+	transform: translateY(-50%);
+	width: 40px;
+	min-width: 0;
+	height: 38px;
+	margin: 0;
+	padding: 0;
+	border: none;
+	border-radius: 8px;
+	background: var(--color-background-dark, #ededed);
+	color: var(--color-main-text, #222);
+	font-size: 20px;
+	line-height: 1;
+	box-shadow: none;
+}
+.idreg button.idreg-copy.done { background: var(--color-success, #46ba61); color: #fff; }
+#idreg-login-form { margin-top: var(--idreg-gap); }
+#idreg-login-form button { width: 100%; display: block; }

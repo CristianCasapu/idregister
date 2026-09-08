@@ -47,3 +47,12 @@
 
 #idregister-personal .locked-list { margin: 8px 0 0 18px; }
 #idregister-personal .locked-list li { margin-bottom: 4px; }
+
+#idregister-personal input[type='text'],
+#idregister-personal input[type='email'],
+#idregister-personal input[type='tel'] { max-width: 320px; padding: 6px 8px; }
+#idregister-personal .pill { display: inline-block; padding: 1px 8px; border-radius: 10px; font-size: 0.85rem; }
+#idregister-personal .pill.ok { background: var(--color-success); color: #fff; }
+#idregister-personal .ok { color: var(--color-success-text, #2d7a3e); }
+#idregister-personal .error { color: var(--color-error); }
+#idregister-personal code { background: var(--color-background-dark); padding: 2px 6px; border-radius: 4px; }

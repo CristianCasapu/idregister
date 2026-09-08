@@ -21,8 +21,9 @@
 	var loginUrl = initial('loginUrl', '/login');
 	var conditions = initial('conditions', {
 		minPasswordLength: 10, requirePhone: true, minAge: 0, termsUrl: '',
-		requireSelfie: true, acceptIdCard: true, acceptDrivingLicence: true,
+		requireSelfie: true, acceptIdCard: true, acceptDrivingLicence: true, express: true,
 	});
+	var express = !!conditions.express;
 	var serverSaysMobile = initial('mobile', false);
 	var mobileOnly = initial('mobileOnly', true);
 	var handoff = initial('handoff', '');
@@ -36,7 +37,7 @@
 	var STORE = 'idregister.wizard';
 	function saveState() {
 		try {
-			if (currentStep < 2 || currentStep > 6) { window.localStorage.removeItem(STORE); return; }
+			if (currentStep < 2 || (currentStep > 6 && currentStep !== 8)) { window.localStorage.removeItem(STORE); return; }
 			window.localStorage.setItem(STORE, JSON.stringify({
 				step: currentStep, scanId: state.scanId, token: state.token, email: state.email, card: state.card ? {
 					type: state.card.type, surname: state.card.surname, givenNames: state.card.givenNames, needsSelfie: state.card.needsSelfie,
@@ -47,7 +48,7 @@
 	function savedState() {
 		try {
 			var saved = JSON.parse(window.localStorage.getItem(STORE) || 'null');
-			if (saved && saved.step >= 2 && saved.step <= 6 && Date.now() - saved.time < 2 * 3600 * 1000) { return saved; }
+			if (saved && saved.step >= 2 && (saved.step <= 6 || saved.step === 8) && Date.now() - saved.time < 2 * 3600 * 1000) { return saved; }
 		} catch (e) { /* ignore */ }
 		return null;
 	}
@@ -84,7 +85,13 @@
 	}
 
 	/** One step at a time; the others are removed from the page, not just hidden. */
-	var STEPS = 6;
+	var STEPS = express ? (conditions.requireSelfie ? 4 : 3) : 6;
+	/** the number shown for a section: express skips the e-mail, code and password sections */
+	function shownStep(n) {
+		if (!express) { return Math.min(Math.max(n, 1), STEPS); }
+		if (n === 8) { return STEPS; }
+		return Math.min(Math.max(n, 1), STEPS);
+	}
 	function step(n) {
 		currentStep = n;
 		Array.prototype.forEach.call(root.querySelectorAll('.idreg-step'), function (s) {
@@ -93,11 +100,12 @@
 		if (n === 1) { window.setTimeout(startCamera, 0); } else if (typeof stopCamera === 'function') { stopCamera(); }
 		if (n === 3) { window.setTimeout(startSelfieCamera, 0); } else if (typeof stopSelfieCamera === 'function') { stopSelfieCamera(); }
 		saveState();
-		var shown = Math.min(Math.max(n, 1), STEPS);
+		var shown = shownStep(n);
 		Array.prototype.forEach.call(root.querySelectorAll('.dot'), function (d) {
+			d.hidden = Number(d.dataset.dot) > STEPS;
 			d.classList.toggle('on', Number(d.dataset.dot) <= shown);
 		});
-		root.querySelector('.idreg-stepline').hidden = n === 0 || n > STEPS;
+		root.querySelector('.idreg-stepline').hidden = n === 0 || (n > STEPS && n !== 8);
 		$('idreg-stepcount').textContent = t('Step {n} of {total}', { n: shown, total: STEPS });
 		message('');
 		window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -466,7 +474,59 @@
 	/* ---- step 2 ---- */
 	$('idreg-again').addEventListener('click', function () { state.scanId = ''; state.card = null; step(1); });
 	$('idreg-confirm-card').addEventListener('click', function () {
-		step(state.card && state.card.needsSelfie ? 3 : 4);
+		if (express && !$('idreg-terms-express').checked) { message(t('Please accept how your data is used.'), 'error'); return; }
+		if (state.card && state.card.needsSelfie) { step(3); return; }
+		if (express) { createExpress(); return; }
+		step(4);
+	});
+
+	/* ---- express: the account is created now; the browser keeps the sign-in details ---- */
+	var created = null;
+	function showCreated(data) {
+		created = data;
+		$('idreg-new-uid').value = data.uid;
+		$('idreg-new-password').value = data.password;
+		$('idreg-login-user').value = data.uid;
+		$('idreg-login-password').value = data.password;
+		var approval = data.status === 'awaiting_approval';
+		$('idreg-express-approval').hidden = !approval;
+		$('idreg-login-form').hidden = approval;
+		try { window.sessionStorage.setItem('idregister.created', JSON.stringify(data)); } catch (e) { /* ignore */ }
+		step(8);
+	}
+	function createExpress() {
+		busy(true, t('Creating the account …'));
+		post('/api/express', { scanId: state.scanId, handoff: handoff, terms: true }).then(function (data) {
+			busy(false);
+			if (!data.ok) { message(data.message, 'error'); return; }
+			showCreated(data);
+		}).catch(function () {
+			busy(false);
+			message(t('Something went wrong. Please try again.'), 'error');
+		});
+	}
+	Array.prototype.forEach.call(root.querySelectorAll('.idreg-copy'), function (button) {
+		button.addEventListener('click', function () {
+			var value = $(button.dataset.copy).value;
+			var done = function () { button.classList.add('done'); window.setTimeout(function () { button.classList.remove('done'); }, 1500); };
+			if (navigator.clipboard && navigator.clipboard.writeText) { navigator.clipboard.writeText(value).then(done, done); }
+			else { $(button.dataset.copy).select(); try { document.execCommand('copy'); } catch (e) { /* ignore */ } done(); }
+		});
+	});
+	$('idreg-login-form').addEventListener('submit', function () {
+		// the browser's password manager is asked directly where it exists (Chrome, Android)
+		try {
+			if (window.PasswordCredential && navigator.credentials && created) {
+				navigator.credentials.store(new window.PasswordCredential({ id: created.uid, password: created.password, name: created.name || created.uid }));
+			}
+		} catch (e) { /* not supported */ }
+		try { window.localStorage.removeItem(STORE); window.sessionStorage.removeItem('idregister.created'); } catch (e) { /* ignore */ }
+		$('idreg-login-form').action = (typeof OC !== 'undefined' && OC.generateUrl) ? OC.generateUrl('/login') : '/index.php/login';
+		$('idreg-login-redirect').value = (typeof OC !== 'undefined' && OC.generateUrl) ? OC.generateUrl('/settings/user') : '/index.php/settings/user';
+		try {
+			$('idreg-login-tz').value = Intl.DateTimeFormat().resolvedOptions().timeZone || '';
+			$('idreg-login-tzo').value = String(-new Date().getTimezoneOffset() / 60);
+		} catch (e) { /* ignore */ }
 	});
 
 	/* ---- step 3: the selfie, with the front camera and a face-shaped guide ---- */
@@ -574,7 +634,7 @@
 			if (data.review) {
 				message(t('We are not completely sure it is the same person, so an administrator will look at your registration.'), null);
 			}
-			step(4);
+			if (express) { createExpress(); } else { step(4); }
 			return true;
 		}).catch(function () {
 			busy(false);
@@ -723,7 +783,10 @@
 		var termsLink = $('idreg-terms-link');
 		termsLink.href = conditions.termsUrl;
 		termsLink.hidden = false;
+		$('idreg-terms-link-express').href = conditions.termsUrl;
+		$('idreg-terms-link-express').hidden = false;
 	}
+	$('idreg-express-consent').hidden = !express;
 	if (conditions.acceptDrivingLicence && conditions.acceptIdCard) {
 		$('idreg-doc-lead').textContent = t('Hold your identity card or your driving licence in front of the camera. We read your name from it while you hold it; no picture is stored.');
 	} else if (conditions.acceptDrivingLicence) {
@@ -746,6 +809,12 @@
 		}
 		// a step that needs the scan or the token cannot be shown without it
 		var target = saved.step;
+		if (target === 8) {
+			var kept = null;
+			try { kept = JSON.parse(window.sessionStorage.getItem('idregister.created') || 'null'); } catch (e) { kept = null; }
+			if (kept && kept.uid) { showCreated(kept); return; }
+			target = 1;
+		}
 		if (target >= 5 && !state.token) { target = 4; }
 		if (target >= 2 && !state.scanId) { target = 1; }
 		step(target);
