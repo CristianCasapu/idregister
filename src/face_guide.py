@@ -33,7 +33,14 @@ def main():
     out = []
     for (x, y, fw, fh) in sorted(list(faces), key=lambda f: -f[2] * f[3]):
         out.append({'x': round(x / w, 4), 'y': round(y / h, 4), 'w': round(fw / w, 4), 'h': round(fh / h, 4)})
-    print(json.dumps({'width': w, 'height': h, 'faces': out}))
+    # a head turned to the side: the profile cascade (it knows one side; the mirror gives the other)
+    profile = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_profileface.xml')
+    turned = 0
+    for g in (gray, cv2.flip(gray, 1)):
+        found = profile.detectMultiScale(g, scaleFactor=1.1, minNeighbors=4, minSize=(min_side, min_side))
+        if len(found) > 0:
+            turned = max(turned, int(max(f[2] for f in found)))
+    print(json.dumps({'width': w, 'height': h, 'faces': out, 'profile': round(turned / w, 4)}))
 
 
 if __name__ == '__main__':

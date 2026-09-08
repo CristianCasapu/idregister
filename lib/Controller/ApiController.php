@@ -382,20 +382,26 @@ class ApiController extends Controller
     #[UseSession]
     #[PublicPage]
     #[AnonRateLimit(limit: 2000, period: 3600)]
-    public function selfieGuide(string $scanId = ''): JSONResponse
+    public function selfieGuide(string $scanId = '', string $phase = 'front'): JSONResponse
     {
         $card = $this->session->get(self::SESSION_PREFIX.$scanId);
         if (!\is_array($card)) {
             return $this->error($this->l->t('Please read your identity card again.'), true);
         }
+        $phase = 'turn' === $phase ? 'turn' : 'front';
         $file = $this->request->getUploadedFile('frame');
         if (null === $file || !isset($file['tmp_name']) || !is_uploaded_file($file['tmp_name']) || ($file['size'] ?? 0) > 512 * 1024) {
             return $this->error($this->l->t('No picture was received.'));
         }
         $data = (string) file_get_contents($file['tmp_name']);
         @unlink($file['tmp_name']);
-        $guide = $this->selfieGuide->guide($data);
+        $guide = $this->selfieGuide->guide($data, $phase);
         unset($data);
+        if ('turn' === $phase && ($guide['turned'] ?? false)) {
+            // the head turned in front of the camera: remembered on the server, the page cannot claim it
+            $card['selfieTurned'] = true;
+            $this->session->set(self::SESSION_PREFIX.$scanId, $card);
+        }
 
         return new JSONResponse(['ok' => true] + $guide, Http::STATUS_OK);
     }
@@ -438,6 +444,8 @@ class ApiController extends Controller
         }
 
         $card['selfie'] = $result['verdict'];
+        // no head turn seen during this selfie: a real match still, but an administrator has a look
+        $card['selfieLive'] = !(bool) $this->settings->get('requireSelfieLiveness') || (bool) ($card['selfieTurned'] ?? false);
         $card['selfieDistance'] = $result['distance'];
         $this->session->set(self::SESSION_PREFIX.$scanId, $card);
 
@@ -480,7 +488,8 @@ class ApiController extends Controller
                     'birthDate' => (string) ($card['birthDate'] ?? ''),
                     'needsReview' => FaceMatch::VERDICT_REVIEW === ($card['selfie'] ?? '')
                     || ((bool) $this->settings->get('requirePhysical') && !\in_array((string) ($card['liveness'] ?? Liveness::VERDICT_UNSURE), [Liveness::VERDICT_OK, 'chip'], true))
-                    || (bool) ($card['expiryUnknown'] ?? false),
+                    || (bool) ($card['expiryUnknown'] ?? false)
+                    || !(bool) ($card['selfieLive'] ?? true),
                     'selfieDistance' => (float) ($card['selfieDistance'] ?? 0),
                 ],
                 $email,
@@ -533,7 +542,8 @@ class ApiController extends Controller
                 'birthDate' => (string) ($card['birthDate'] ?? ''),
                 'needsReview' => FaceMatch::VERDICT_REVIEW === ($card['selfie'] ?? '')
                     || ((bool) $this->settings->get('requirePhysical') && !\in_array((string) ($card['liveness'] ?? Liveness::VERDICT_UNSURE), [Liveness::VERDICT_OK, 'chip'], true))
-                    || (bool) ($card['expiryUnknown'] ?? false),
+                    || (bool) ($card['expiryUnknown'] ?? false)
+                    || !(bool) ($card['selfieLive'] ?? true),
                 'selfieDistance' => (float) ($card['selfieDistance'] ?? 0),
             ]);
             $this->session->remove(self::SESSION_PREFIX.$scanId);

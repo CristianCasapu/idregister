@@ -38,6 +38,16 @@ declare(strict_types=1);
 		<!-- 1: the document, read live with the camera -->
 		<section class="idreg-step" data-step="1" hidden>
 			<p class="idreg-lead" id="idreg-doc-lead"><?php p($l->t('Hold your identity card in front of the camera. We read your name from it while you hold it; no picture is stored.')); ?></p>
+			<div id="idreg-consent-gate" hidden>
+				<label class="idreg-check">
+					<input type="checkbox" id="idreg-terms-gate">
+					<span>
+						<?php p($l->t('I agree that my name is taken from my identity card and an account is created for me. The picture of the card, the selfie and my personal number are not kept.')); ?>
+						<a id="idreg-terms-link-gate" href="#" target="_blank" rel="noopener" hidden><?php p($l->t('Read more')); ?></a>
+					</span>
+				</label>
+				<button type="button" class="idreg-button primary" id="idreg-start-scan" disabled><?php p($l->t('Start: read the document')); ?></button>
+			</div>
 			<div class="idreg-cam" id="idreg-cam">
 				<video id="idreg-video" playsinline muted autoplay></video>
 				<canvas id="idreg-overlay" aria-hidden="true"></canvas>
@@ -83,6 +93,7 @@ declare(strict_types=1);
 					<a id="idreg-terms-link-express" href="#" target="_blank" rel="noopener" hidden><?php p($l->t('Read more')); ?></a>
 				</span>
 			</label>
+			<p class="idreg-hint" id="idreg-auto-next" hidden></p>
 			<div class="idreg-buttons">
 				<button type="button" class="idreg-button" id="idreg-again"><?php p($l->t('Scan again')); ?></button>
 				<button type="button" class="idreg-button primary" id="idreg-confirm-card"><?php p($l->t('This is me')); ?></button>

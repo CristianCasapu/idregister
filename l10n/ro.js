@@ -1,6 +1,11 @@
 OC.L10N.register(
     "idregister",
     {
+    "Good — now look at the camera again": "Bine — acum privește din nou spre cameră",
+    "Turn your head a little to the left or to the right": "Întoarce puțin capul spre stânga sau spre dreapta",
+    "Ask for a small head turn during the selfie (a photo held in front of the camera cannot do it); without it, an administrator reviews the registration": "Cere o mică întoarcere a capului la selfie (o poză ținută în fața camerei nu o poate face); fără ea, un administrator verifică înregistrarea",
+    "Start: read the document": "Începe: citește actul",
+    "Continuing in {n} s …": "Continui în {n} s …",
     "The chip reading is not enabled on this server.": "Citirea cipului nu este activată pe acest server.",
     "That is the photo on the document, not a selfie. Please take a selfie with the camera.": "Aceea este poza de pe act, nu un selfie. Te rugăm să faci un selfie cu camera.",
     "Looking for the expiry date — the whole card in the frame": "Caut data expirării — tot actul în chenar",

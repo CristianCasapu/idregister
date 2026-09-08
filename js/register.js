@@ -101,7 +101,7 @@
 		try {
 			if (currentStep < 2 || (currentStep > 6 && currentStep !== 8)) { window.localStorage.removeItem(STORE); return; }
 			window.localStorage.setItem(STORE, JSON.stringify({
-				step: currentStep, scanId: state.scanId, token: state.token, email: state.email, card: state.card ? {
+				step: currentStep, scanId: state.scanId, token: state.token, email: state.email, consent: !!state.consent, card: state.card ? {
 					type: state.card.type, surname: state.card.surname, givenNames: state.card.givenNames, needsSelfie: state.card.needsSelfie,
 				} : null, time: Date.now(),
 			}));
@@ -110,7 +110,7 @@
 	function savedState() {
 		try {
 			var saved = JSON.parse(window.localStorage.getItem(STORE) || 'null');
-			if (saved && saved.step >= 2 && (saved.step <= 6 || saved.step === 8) && Date.now() - saved.time < 2 * 3600 * 1000) { return saved; }
+			if (saved && saved.step >= 2 && (saved.step <= 6 || saved.step === 8) && Date.now() - saved.time < 2 * 3600 * 1000) { state.consent = !!saved.consent; return saved; }
 		} catch (e) { /* ignore */ }
 		return null;
 	}
@@ -159,7 +159,16 @@
 		Array.prototype.forEach.call(root.querySelectorAll('.idreg-step'), function (s) {
 			s.hidden = Number(s.dataset.step) !== n;
 		});
-		if (n === 1) { window.setTimeout(startCamera, 0); } else if (typeof stopCamera === 'function') { stopCamera(); }
+		if (n === 1) {
+			// the consent comes first (once); the camera starts right after it
+			var gate = $('idreg-consent-gate');
+			var needGate = express && !state.consent;
+			gate.hidden = !needGate;
+			$('idreg-cam').hidden = needGate;
+			$('idreg-cam-hint').hidden = needGate;
+			$('idreg-photo-link').parentNode.hidden = needGate;
+			if (!needGate) { window.setTimeout(startCamera, 0); }
+		} else if (typeof stopCamera === 'function') { stopCamera(); }
 		if (n === 3) { window.setTimeout(startSelfieCamera, 0); } else if (typeof stopSelfieCamera === 'function') { stopSelfieCamera(); }
 		saveState();
 		var shown = shownStep(n);
@@ -439,6 +448,7 @@
 			? t('Read from a driving licence.')
 			: t('Read from an identity card.');
 		step(2);
+		if (express && state.consent) { autoContinue(3); }
 	}
 
 	/** one frame to the server; resolves when the answer is handled */
@@ -615,9 +625,36 @@
 	});
 
 	/* ---- step 2 ---- */
-	$('idreg-again').addEventListener('click', function () { state.scanId = ''; state.card = null; step(1); });
+	$('idreg-again').addEventListener('click', function () { if (autoNext) { window.clearTimeout(autoNext); autoNext = null; } state.scanId = ''; state.card = null; step(1); });
+	$('idreg-terms-gate').addEventListener('change', function () { $('idreg-start-scan').disabled = !$('idreg-terms-gate').checked; });
+	$('idreg-start-scan').addEventListener('click', function () {
+		if (!$('idreg-terms-gate').checked) { return; }
+		state.consent = true;
+		$('idreg-terms-express').checked = true;
+		$('idreg-express-consent').hidden = true;
+		step(1);
+	});
+
+	/** after the document is read: the names for a moment, then on to the selfie by itself (the buttons still work) */
+	var autoNext = null;
+	function autoContinue(seconds) {
+		var box = $('idreg-auto-next');
+		var left = seconds;
+		var tick = function () {
+			if (currentStep !== 2) { box.hidden = true; return; }
+			if (left <= 0) { box.hidden = true; $('idreg-confirm-card').click(); return; }
+			box.hidden = false;
+			box.textContent = t('Continuing in {n} s …', { n: left });
+			left -= 1;
+			autoNext = window.setTimeout(tick, 1000);
+		};
+		if (autoNext) { window.clearTimeout(autoNext); }
+		tick();
+	}
+
 	$('idreg-confirm-card').addEventListener('click', function () {
-		if (express && !$('idreg-terms-express').checked) { message(t('Please accept how your data is used.'), 'error'); return; }
+		if (autoNext) { window.clearTimeout(autoNext); autoNext = null; $('idreg-auto-next').hidden = true; }
+		if (express && !state.consent && !$('idreg-terms-express').checked) { message(t('Please accept how your data is used.'), 'error'); return; }
 		if (state.card && state.card.needsSelfie) { step(3); return; }
 		if (express) { createExpress(); return; }
 		step(4);
@@ -676,7 +713,7 @@
 	$('idreg-login-form').addEventListener('submit', prepareLogin);
 
 	/* ---- step 3: the selfie, with the front camera and a face-shaped guide ---- */
-	var selfie = { video: $('idreg-selfie-video'), overlay: $('idreg-selfie-overlay'), box: $('idreg-selfie-cam'), status: $('idreg-selfie-status'), stream: null, running: false, timer: null, level: 0, face: null, good: 0, guiding: false, taking: false };
+	var selfie = { video: $('idreg-selfie-video'), overlay: $('idreg-selfie-overlay'), box: $('idreg-selfie-cam'), status: $('idreg-selfie-status'), stream: null, running: false, timer: null, level: 0, face: null, good: 0, guiding: false, taking: false, phase: 0, turnStarted: 0 };
 
 	function ovalRect(w, h) {
 		var rw = w * 0.62, rh = rw * 1.3;
@@ -736,6 +773,7 @@
 			var form = new FormData();
 			form.append('frame', blob, 'guide.jpg');
 			form.append('scanId', state.scanId);
+			form.append('phase', selfie.phase === 1 ? 'turn' : 'front');
 			return fetch(url('/api/selfie/guide'), { method: 'POST', headers: { requesttoken: (typeof OC !== 'undefined' && OC.requestToken) || '' }, body: form })
 				.then(function (r) { return r.json(); })
 				.then(function (data) {
@@ -745,8 +783,16 @@
 					selfie.level = data.level || 0;
 					selfie.face = data.face || null;
 					selfie.status.textContent = data.status || '';
+					if (selfie.phase === 1) {
+						// the head turn, confirmed by the server; after 8 s without it the picture is taken anyway (then reviewed)
+						if (data.turned || Date.now() - selfie.turnStarted > 8000) { selfie.phase = 2; selfie.good = 0; }
+						return;
+					}
 					selfie.good = data.good ? selfie.good + 1 : 0;
-					if (selfie.good >= 2) { autoSelfie(); }
+					if (selfie.good >= 2) {
+						if (selfie.phase === 0) { selfie.phase = 1; selfie.good = 0; selfie.turnStarted = Date.now(); selfie.status.textContent = t('Turn your head a little to the left or to the right'); }
+						else { autoSelfie(); }
+					}
 				});
 		}).catch(function () { netFailed(); }).then(function () { selfie.guiding = false; });
 	}
@@ -803,6 +849,7 @@
 				$('idreg-take-selfie').disabled = false;
 				selfie.level = 0;
 				selfie.good = 0;
+				selfie.phase = 0;
 				selfie.taking = false;
 				drawSelfieOverlay();
 				// the guidance: a small frame every 600 ms, the selfie taken by itself once the face sits right
@@ -997,6 +1044,8 @@
 		termsLink.href = conditions.termsUrl;
 		termsLink.hidden = false;
 		$('idreg-terms-link-express').href = conditions.termsUrl;
+		$('idreg-terms-link-gate').href = conditions.termsUrl;
+		$('idreg-terms-link-gate').hidden = false;
 		$('idreg-terms-link-express').hidden = false;
 	}
 	$('idreg-express-consent').hidden = !express;

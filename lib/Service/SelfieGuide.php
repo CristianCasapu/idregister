@@ -35,11 +35,21 @@ final class SelfieGuide
     ) {}
 
     /**
-     * @return array{status:string, level:int, good:bool, face:?array{x:float,y:float,w:float,h:float}}
+     * @return array{status:string, level:int, good:bool, turned?:bool, face:?array{x:float,y:float,w:float,h:float}}
      */
-    public function guide(string $jpeg): array
+    public function guide(string $jpeg, string $phase = 'front'): array
     {
-        $face = $this->largestFace($jpeg);
+        $found = $this->detect($jpeg);
+        $face = $found['face'];
+        if ('turn' === $phase) {
+            // the head turned to the side: a profile at least as wide as a decent face, or the frontal face gone while a profile shows
+            $turned = $found['profile'] >= 0.28 && (null === $face || $found['profile'] >= $face['w'] * 0.8);
+            if ($turned) {
+                return ['status' => $this->l->t('Good — now look at the camera again'), 'level' => 2, 'good' => false, 'turned' => true, 'face' => $face];
+            }
+
+            return ['status' => $this->l->t('Turn your head a little to the left or to the right'), 'level' => 1, 'good' => false, 'turned' => false, 'face' => $face];
+        }
         if (null === $face) {
             return ['status' => $this->l->t('Put your face inside the oval'), 'level' => 0, 'good' => false, 'face' => null];
         }
@@ -61,12 +71,13 @@ final class SelfieGuide
         return ['status' => $this->l->t('Hold still …'), 'level' => 2, 'good' => true, 'face' => $face];
     }
 
-    /** @return null|array{x:float,y:float,w:float,h:float} */
-    private function largestFace(string $jpeg): ?array
+    /** @return array{face: ?array{x:float,y:float,w:float,h:float}, profile: float} */
+    private function detect(string $jpeg): array
     {
+        $none = ['face' => null, 'profile' => 0.0];
         $file = $this->tempManager->getTemporaryFile('.jpg');
         if (false === $file) {
-            return null;
+            return $none;
         }
         file_put_contents($file, $jpeg);
 
@@ -81,16 +92,17 @@ final class SelfieGuide
             if (!$process->isSuccessful()) {
                 $this->logger->warning('idregister: the face guide failed: '.trim($process->getErrorOutput()));
 
-                return null;
+                return $none;
             }
             $out = json_decode(trim($process->getOutput()), true);
             $faces = \is_array($out) && \is_array($out['faces'] ?? null) ? $out['faces'] : [];
+            $profile = \is_array($out) ? (float) ($out['profile'] ?? 0) : 0.0;
             if (0 === \count($faces)) {
-                return null;
+                return ['face' => null, 'profile' => $profile];
             }
             $f = $faces[0];
 
-            return ['x' => (float) $f['x'], 'y' => (float) $f['y'], 'w' => (float) $f['w'], 'h' => (float) $f['h']];
+            return ['face' => ['x' => (float) $f['x'], 'y' => (float) $f['y'], 'w' => (float) $f['w'], 'h' => (float) $f['h']], 'profile' => $profile];
         } finally {
             @unlink($file);
             $this->tempManager->clean();
