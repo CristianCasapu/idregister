@@ -197,6 +197,7 @@ declare(strict_types=1);
 			<form method="post" id="idreg-login-form" action="/index.php/login">
 				<input type="hidden" name="user" id="idreg-login-user" autocomplete="username">
 				<input type="hidden" name="password" id="idreg-login-password" autocomplete="current-password">
+				<input type="hidden" name="requesttoken" id="idreg-login-token" value="">
 				<input type="hidden" name="redirect_url" id="idreg-login-redirect" value="">
 				<input type="hidden" name="timezone" id="idreg-login-tz" value="">
 				<input type="hidden" name="timezone_offset" id="idreg-login-tzo" value="">

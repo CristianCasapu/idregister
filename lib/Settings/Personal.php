@@ -39,8 +39,8 @@ final class Personal implements ISettings
                 ];
             }
         }
-        $this->initialState->provideInitialState('locked', $locked);
-        $this->initialState->provideInitialState('profile', null !== $user && null !== $locked ? $this->profile->state($user) : null);
+        $this->initialState->provideInitialState('locked', $locked ?? false);
+        $this->initialState->provideInitialState('profile', null !== $user && null !== $locked ? $this->profile->state($user) : false);
 
         return new TemplateResponse(Application::APP_ID, 'personal');
     }

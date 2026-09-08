@@ -247,6 +247,7 @@ OC.L10N.register(
     "Ask for a code first.": "Cere mai întâi un cod.",
     "This code has expired. Ask for a new one.": "Codul a expirat. Cere unul nou.",
     "Your phone number is fixed and cannot be changed.": "Numărul de telefon e fix și nu mai poate fi schimbat.",
-    "The nickname is too long (40 characters at most).": "Nickname-ul e prea lung (cel mult 40 de caractere)."
+    "The nickname is too long (40 characters at most).": "Nickname-ul e prea lung (cel mult 40 de caractere).",
+    "Too many attempts from this connection. Please wait a while and try again.": "Prea multe încercări de pe această conexiune. Așteaptă puțin și încearcă din nou."
 },
 "nplurals=3; plural=(n==1?0:(((n%100>19)||((n%100==0)&&(n!=0)))?2:1));");

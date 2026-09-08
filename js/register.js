@@ -115,7 +115,10 @@
 		var headers = { requesttoken: (typeof OC !== 'undefined' && OC.requestToken) || '' };
 		if (!isForm) { headers['Content-Type'] = 'application/json'; }
 		return fetch(url(path), { method: 'POST', headers: headers, body: isForm ? body : JSON.stringify(body) })
-			.then(function (r) { return r.json(); });
+			.then(function (r) {
+				if (r.status === 429) { return { ok: false, message: t('Too many attempts from this connection. Please wait a while and try again.') }; }
+				return r.json();
+			});
 	}
 
 	/**
@@ -521,7 +524,15 @@
 			}
 		} catch (e) { /* not supported */ }
 		try { window.localStorage.removeItem(STORE); window.sessionStorage.removeItem('idregister.created'); } catch (e) { /* ignore */ }
+		// Nextcloud sends this page with "Referrer-Policy: no-referrer", which makes the browser post
+		// the sign-in with "Origin: null" — and the sign-in refuses that. Same-origin is enough here.
+		var meta = document.createElement('meta');
+		meta.name = 'referrer';
+		meta.content = 'same-origin';
+		document.head.appendChild(meta);
 		$('idreg-login-form').action = (typeof OC !== 'undefined' && OC.generateUrl) ? OC.generateUrl('/login') : '/index.php/login';
+		// the sign-in needs the session's request token, like the login form itself
+		$('idreg-login-token').value = (typeof OC !== 'undefined' && OC.requestToken) || (document.head.getAttribute('data-requesttoken') || '');
 		$('idreg-login-redirect').value = (typeof OC !== 'undefined' && OC.generateUrl) ? OC.generateUrl('/settings/user') : '/index.php/settings/user';
 		try {
 			$('idreg-login-tz').value = Intl.DateTimeFormat().resolvedOptions().timeZone || '';

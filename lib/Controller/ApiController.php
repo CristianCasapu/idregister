@@ -349,7 +349,7 @@ class ApiController extends Controller
      */
     #[UseSession]
     #[PublicPage]
-    #[AnonRateLimit(limit: 5, period: 3600)]
+    #[AnonRateLimit(limit: 10, period: 3600)]
     public function express(string $scanId = '', string $handoff = '', bool $terms = false): JSONResponse
     {
         if (!$this->settings->get('expressMode')) {
