@@ -83,7 +83,7 @@ final class FaceMatch
      *
      * @return array{ok:bool, vector:list<float>, faces:int, error:string}
      */
-    public function describe(string $imageData, float $minSize = 0.04): array
+    public function describe(string $imageData, float $minSize = 0.04, bool $withPose = false): array
     {
         if (!$this->available()) {
             return ['ok' => false, 'vector' => [], 'faces' => 0, 'error' => 'insightface is not installed'];
@@ -98,7 +98,7 @@ final class FaceMatch
             $process = new Process(
                 [$this->pythonBinary(), \dirname(__DIR__, 2).'/src/face_embed.py', $file, '--min-size', (string) $minSize],
                 \dirname(__DIR__, 2),
-                $this->environment(),
+                $this->environment() + ['FACE_POSE' => $withPose ? '1' : '0'],
             );
             $process->setTimeout(self::TIMEOUT);
             $process->run();

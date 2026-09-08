@@ -44,7 +44,7 @@ final class SelfieGuide
         if ('turn' === $phase) {
             // the head turned: the yaw from the 3D landmarks of the face model (a profile cascade fires on
             // frontal faces too, so it is no proof); about two seconds per frame, only during this phase
-            $described = $this->faceMatch->describe($jpeg, 0.08);
+            $described = $this->faceMatch->describe($jpeg, 0.08, true);
             $pose = $described['pose'] ?? null;
             $yaw = \is_array($pose) && isset($pose[1]) ? abs((float) $pose[1]) : 0.0;
             $turned = \count($described['vector']) > 0 && $yaw >= self::TURN_DEGREES;

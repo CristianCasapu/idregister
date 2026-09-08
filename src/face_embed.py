@@ -56,8 +56,9 @@ def main():
         height, width = img.shape[:2]
 
     with contextlib.redirect_stdout(sys.stderr):
-        app = FaceAnalysis(name=MODEL, root=ROOT, providers=providers(),
-                           allowed_modules=['detection', 'recognition'])
+        # the 3D landmarks give the head pose (the head turn of the selfie); an optional module
+        modules = ['detection', 'recognition'] + (['landmark_3d_68'] if os.environ.get('FACE_POSE') == '1' else [])
+        app = FaceAnalysis(name=MODEL, root=ROOT, providers=providers(), allowed_modules=modules)
         app.prepare(ctx_id=0, det_size=(DET_SIZE, DET_SIZE))
         faces = app.get(img)
 
