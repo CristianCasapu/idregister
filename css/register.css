@@ -1,3 +1,13 @@
+/*
+ * Nextcloud's own stylesheets reset `section`, `img` and friends to `display: block`, and an
+ * author rule beats the browser's `[hidden] { display: none }`. Without this every step of the
+ * wizard shows at once. Everything the script hides with the `hidden` attribute goes through here.
+ */
+.idreg [hidden],
+.idreg-card [hidden] {
+	display: none !important;
+}
+
 /* Registration with an identity card — built for a phone first */
 .idreg {
 	--idreg-gap: 14px;
@@ -184,7 +194,8 @@
 	color: var(--color-text-maxcontrast, #767676);
 }
 
-.idreg-spinner span {
+.idreg-spin {
+	flex: none;
 	width: 18px;
 	height: 18px;
 	border: 2px solid var(--color-border-dark, #ccc);

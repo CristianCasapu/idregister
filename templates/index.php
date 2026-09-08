@@ -150,6 +150,6 @@ declare(strict_types=1);
 			<a class="idreg-button primary" id="idreg-login" href="#"><?php p($l->t('Sign in')); ?></a>
 		</section>
 
-		<div class="idreg-spinner" id="idreg-spinner" hidden><span></span><span id="idreg-spinner-text"><?php p($l->t('Working …')); ?></span></div>
+		<div class="idreg-spinner" id="idreg-spinner" hidden><span class="idreg-spin" aria-hidden="true"></span><span id="idreg-spinner-text"><?php p($l->t('Working …')); ?></span></div>
 	</div>
 </div>

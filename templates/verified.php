@@ -36,7 +36,7 @@ declare(strict_types=1);
 				<input type="password" id="idreg-password2" autocomplete="new-password" required>
 			</div>
 			<button type="button" class="idreg-button primary" id="idreg-finish" disabled><?php p($l->t('Create the account')); ?></button>
-			<div class="idreg-spinner" id="idreg-spinner" hidden><span></span><span id="idreg-spinner-text"><?php p($l->t('Working …')); ?></span></div>
+			<div class="idreg-spinner" id="idreg-spinner" hidden><span class="idreg-spin" aria-hidden="true"></span><span id="idreg-spinner-text"><?php p($l->t('Working …')); ?></span></div>
 		<?php elseif ('awaiting_approval' === ($_['result']['status'] ?? '')): ?>
 			<h1><?php p($l->t('E-mail address confirmed')); ?></h1>
 			<p class="idreg-done"><?php p($l->t('Thank you, %s. An administrator still has to let you in; you will get an e-mail when the account is open.', [$_['result']['name'] ?? ''])); ?></p>
