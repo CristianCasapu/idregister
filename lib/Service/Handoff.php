@@ -37,13 +37,16 @@ final class Handoff
         $this->cache = $cacheFactory->createDistributed(Application::APP_ID.'_handoff');
     }
 
-    /** @return array{token:string, url:string} */
+    /** @return array{token:string, url:string, secret:string} */
     public function create(): array
     {
+        // the token goes into the QR code; the secret stays with whoever asked (the desktop page or
+        // the app) and is needed to pick up the sign-in at the end, so a photographed QR code alone gives nothing
         $token = $this->random->generate(20, ISecureRandom::CHAR_ALPHANUMERIC);
-        $this->write($token, ['state' => self::STATE_WAITING, 'name' => '', 'created' => time()]);
+        $secret = $this->random->generate(24, ISecureRandom::CHAR_ALPHANUMERIC);
+        $this->write($token, ['state' => self::STATE_WAITING, 'name' => '', 'created' => time(), 'secret' => hash('sha256', $secret)]);
 
-        return ['token' => $token, 'url' => $this->url($token)];
+        return ['token' => $token, 'url' => $this->url($token), 'secret' => $secret];
     }
 
     public function url(string $token): string
@@ -51,7 +54,7 @@ final class Handoff
         return $this->urlGenerator->linkToRouteAbsolute('idregister.page.index').'?s='.$token;
     }
 
-    /** @return array{state:string, name:string, created:int, login?:array{uid:string, password:string, until:int}}|null */
+    /** @return array{state:string, name:string, created:int, secret?:string, login?:array{uid:string, password:string, until:int}}|null */
     public function get(string $token): ?array
     {
         if ('' === $token) {
@@ -101,11 +104,14 @@ final class Handoff
      *
      * @return array{uid:string, password:string}|null
      */
-    public function takeLogin(string $token): ?array
+    public function takeLogin(string $token, string $secret): ?array
     {
         $current = $this->get($token);
         if (null === $current || !\is_array($current['login'] ?? null)) {
             return null;
+        }
+        if ('' === $secret || !hash_equals((string) ($current['secret'] ?? ''), hash('sha256', $secret))) {
+            return null; // the QR code alone is not enough
         }
         $login = $current['login'];
         unset($current['login']);
@@ -117,7 +123,7 @@ final class Handoff
         return ['uid' => (string) $login['uid'], 'password' => (string) $login['password']];
     }
 
-    /** @param array{state:string, name:string, created:int, login?:array{uid:string, password:string, until:int}} $value */
+    /** @param array{state:string, name:string, created:int, secret?:string, login?:array{uid:string, password:string, until:int}} $value */
     private function write(string $token, array $value): void
     {
         $this->cache->set('h_'.$token, $value, self::TTL);

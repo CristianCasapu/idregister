@@ -257,10 +257,10 @@
 		} catch (e) { /* ignore */ }
 	}
 
-	function followHandoff(token) {
+	function followHandoff(token, secret) {
 		var order = ['waiting', 'opened', 'document', 'registered', 'confirmed'];
 		var timer = window.setInterval(function () {
-			fetch(url('/api/handoff/' + token)).then(function (r) { return r.json(); }).then(function (data) {
+			fetch(url('/api/handoff/' + token + (secret ? '?k=' + encodeURIComponent(secret) : ''))).then(function (r) { return r.json(); }).then(function (data) {
 				var reached = order.indexOf(data.state);
 				Array.prototype.forEach.call($('idreg-progress').children, function (li) {
 					li.classList.toggle('done', order.indexOf(li.dataset.state) <= reached);
@@ -291,7 +291,7 @@
 		$('idreg-qr').parentNode.hidden = true;
 		$('idreg-qr-url').hidden = true;
 		message(t('Finishing your registration …'), null);
-		followHandoff(handoff);
+		followHandoff(handoff, (window.location.search.match(/[?&]k=([A-Za-z0-9]+)/) || [])[1] || '');
 		return;
 	}
 
@@ -301,7 +301,7 @@
 			if (!data.ok) { message(t('Something went wrong. Please try again.'), 'error'); return; }
 			drawQr(data.url);
 			$('idreg-qr-url').textContent = data.url;
-			followHandoff(data.token);
+			followHandoff(data.token, data.secret || '');
 		}).catch(function () {
 			message(t('Something went wrong. Please try again.'), 'error');
 		});

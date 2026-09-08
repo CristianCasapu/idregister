@@ -28,6 +28,10 @@ final class FaceMatch
     public const VERDICT_REVIEW = 'review';
     public const VERDICT_DIFFERENT = 'different';
     public const VERDICT_NO_FACE = 'no_face';
+    /** the "selfie" is the photo printed on the document itself (re-photographed or uploaded) */
+    public const VERDICT_COPY = 'copy';
+    /** two different pictures of a live person never come this close; the same picture does */
+    public const COPY_DISTANCE = 0.25;
     public const TIMEOUT = 180;
 
     public function __construct(
@@ -143,6 +147,7 @@ final class FaceMatch
         $review = (float) $this->settings->get('selfieReviewDistance');
 
         $verdict = match (true) {
+            $distance < self::COPY_DISTANCE => self::VERDICT_COPY,
             $distance <= $match => self::VERDICT_MATCH,
             $distance <= $review => self::VERDICT_REVIEW,
             default => self::VERDICT_DIFFERENT,

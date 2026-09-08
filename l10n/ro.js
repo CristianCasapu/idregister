@@ -1,6 +1,8 @@
 OC.L10N.register(
     "idregister",
     {
+    "The chip reading is not enabled on this server.": "Citirea cipului nu este activată pe acest server.",
+    "That is the photo on the document, not a selfie. Please take a selfie with the camera.": "Aceea este poza de pe act, nu un selfie. Te rugăm să faci un selfie cu camera.",
     "Looking for the expiry date — the whole card in the frame": "Caut data expirării — tot actul în chenar",
     "This identity card has expired (%s). Registration needs a valid one.": "Această carte de identitate a expirat (%s). Înregistrarea cere un act valabil.",
     "Require a valid document: an expired card is refused; when the expiry date cannot be read, an administrator reviews the registration": "Cere un act valabil: un act expirat e refuzat; când data expirării nu poate fi citită, un administrator verifică înregistrarea",

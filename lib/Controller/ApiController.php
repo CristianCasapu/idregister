@@ -307,6 +307,10 @@ class ApiController extends Controller
         string $dateOfExpiry = '',
         string $nationality = '',
     ): JSONResponse {
+        // the chip's data comes from the phone unsigned for now: only when the administrator switched it on
+        if (!(bool) $this->settings->get('chipEnabled')) {
+            return $this->error($this->l->t('The chip reading is not enabled on this server.'), true);
+        }
         $card = $this->session->get(self::SESSION_PREFIX.$scanId);
         if (!\is_array($card) || (time() - (int) ($card['time'] ?? 0)) > self::SCAN_TTL) {
             return $this->error($this->l->t('Please read your identity card again.'));
@@ -423,6 +427,9 @@ class ApiController extends Controller
 
         if (FaceMatch::VERDICT_NO_FACE === $result['verdict']) {
             return $this->error($this->l->t('No face was found in the selfie. Hold the phone in front of your face, in good light.'));
+        }
+        if (FaceMatch::VERDICT_COPY === $result['verdict']) {
+            return $this->error($this->l->t('That is the photo on the document, not a selfie. Please take a selfie with the camera.'));
         }
         if (FaceMatch::VERDICT_DIFFERENT === $result['verdict']) {
             $this->logger->info('idregister: the selfie does not match the document (distance '.$result['distance'].')');
@@ -620,6 +627,8 @@ class ApiController extends Controller
     #[AnonRateLimit(limit: 30, period: 3600)]
     public function handoffCreate(): JSONResponse
     {
+        // the answer carries the token (goes into the QR code) and a secret (stays in this page /
+        // the app): only whoever holds both can pick up the sign-in at the end
         return new JSONResponse(['ok' => true] + $this->handoff->create(), Http::STATUS_OK);
     }
 
@@ -627,7 +636,7 @@ class ApiController extends Controller
     #[PublicPage]
     #[NoCSRFRequired]
     #[AnonRateLimit(limit: 1200, period: 3600)]
-    public function handoffStatus(string $token): JSONResponse
+    public function handoffStatus(string $token, string $k = ''): JSONResponse
     {
         $state = $this->handoff->get($token);
         $answer = [
@@ -636,7 +645,7 @@ class ApiController extends Controller
             'name' => $state['name'] ?? '',
         ];
         if (null !== $state && Handoff::STATE_CONFIRMED === $state['state']) {
-            $login = $this->handoff->takeLogin($token);
+            $login = $this->handoff->takeLogin($token, $k);
             if (null !== $login) {
                 $answer['login'] = $login;
             }
