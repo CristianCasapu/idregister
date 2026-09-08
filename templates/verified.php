@@ -30,6 +30,7 @@ declare(strict_types=1);
 					<li data-rule="digit"><?php p($l->t('At least one digit')); ?></li>
 					<li data-rule="symbol"><?php p($l->t('A symbol makes it stronger')); ?></li>
 				</ul>
+				<button type="button" class="idreg-generate" id="idreg-generate"><?php p($l->t('Generate a password for me')); ?></button>
 			</div>
 			<div class="idreg-field">
 				<label for="idreg-password2"><?php p($l->t('Repeat the password')); ?></label>

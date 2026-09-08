@@ -27,8 +27,30 @@
 	var mobileOnly = initial('mobileOnly', true);
 	var handoff = initial('handoff', '');
 
-	var state = { file: null, selfie: null, card: null, scanId: '', token: '', language: (document.documentElement.lang || 'en') };
+	var state = { file: null, selfie: null, card: null, scanId: '', token: '', email: '', language: (document.documentElement.lang || 'en') };
 	var passwordOk = false;
+	var currentStep = 1;
+
+	/* Switching to the mail app for the code often makes the phone reload this page: what was
+	 * reached is kept in the browser (no personal number, no pictures) for two hours. */
+	var STORE = 'idregister.wizard';
+	function saveState() {
+		try {
+			if (currentStep < 2 || currentStep > 6) { window.localStorage.removeItem(STORE); return; }
+			window.localStorage.setItem(STORE, JSON.stringify({
+				step: currentStep, scanId: state.scanId, token: state.token, email: state.email, card: state.card ? {
+					type: state.card.type, surname: state.card.surname, givenNames: state.card.givenNames, needsSelfie: state.card.needsSelfie,
+				} : null, time: Date.now(),
+			}));
+		} catch (e) { /* private mode: nothing to keep */ }
+	}
+	function savedState() {
+		try {
+			var saved = JSON.parse(window.localStorage.getItem(STORE) || 'null');
+			if (saved && saved.step >= 2 && saved.step <= 6 && Date.now() - saved.time < 2 * 3600 * 1000) { return saved; }
+		} catch (e) { /* ignore */ }
+		return null;
+	}
 
 	function url(path) {
 		return (typeof OC !== 'undefined' && OC.generateUrl) ? OC.generateUrl('/apps/idregister' + path) : '/index.php/apps/idregister' + path;
@@ -64,10 +86,13 @@
 	/** One step at a time; the others are removed from the page, not just hidden. */
 	var STEPS = 6;
 	function step(n) {
+		currentStep = n;
 		Array.prototype.forEach.call(root.querySelectorAll('.idreg-step'), function (s) {
 			s.hidden = Number(s.dataset.step) !== n;
 		});
 		if (n === 1) { window.setTimeout(startCamera, 0); } else if (typeof stopCamera === 'function') { stopCamera(); }
+		if (n === 3) { window.setTimeout(startSelfieCamera, 0); } else if (typeof stopSelfieCamera === 'function') { stopSelfieCamera(); }
+		saveState();
 		var shown = Math.min(Math.max(n, 1), STEPS);
 		Array.prototype.forEach.call(root.querySelectorAll('.dot'), function (d) {
 			d.classList.toggle('on', Number(d.dataset.dot) <= shown);
@@ -273,7 +298,7 @@
 	}
 
 	function documentRead(data) {
-		state.card = data;
+		state.card = { type: data.type, surname: data.surname, givenNames: data.givenNames, needsSelfie: data.needsSelfie };
 		state.scanId = data.scanId;
 		$('idreg-given').value = data.givenNames;
 		$('idreg-surname').value = data.surname;
@@ -439,12 +464,142 @@
 	});
 
 	/* ---- step 2 ---- */
-	$('idreg-again').addEventListener('click', function () { step(1); });
+	$('idreg-again').addEventListener('click', function () { state.scanId = ''; state.card = null; step(1); });
 	$('idreg-confirm-card').addEventListener('click', function () {
 		step(state.card && state.card.needsSelfie ? 3 : 4);
 	});
 
-	/* ---- step 3: the selfie ---- */
+	/* ---- step 3: the selfie, with the front camera and a face-shaped guide ---- */
+	var selfie = { video: $('idreg-selfie-video'), overlay: $('idreg-selfie-overlay'), box: $('idreg-selfie-cam'), status: $('idreg-selfie-status'), stream: null, running: false, timer: null };
+
+	function ovalRect(w, h) {
+		var rw = w * 0.62, rh = rw * 1.3;
+		if (rh > h * 0.8) { rh = h * 0.8; rw = rh / 1.3; }
+		return { cx: w / 2, cy: h * 0.47, rx: rw / 2, ry: rh / 2 };
+	}
+
+	function drawSelfieOverlay() {
+		var c = selfie.overlay;
+		var w = selfie.video.clientWidth, h = selfie.video.clientHeight;
+		if (!w || !h) { return; }
+		var ratio = window.devicePixelRatio || 1;
+		if (c.width !== Math.round(w * ratio)) { c.width = Math.round(w * ratio); c.height = Math.round(h * ratio); }
+		var ctx = c.getContext('2d');
+		ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
+		ctx.clearRect(0, 0, w, h);
+		var o = ovalRect(w, h);
+		// darken everything outside the face oval
+		ctx.fillStyle = 'rgba(0,0,0,0.5)';
+		ctx.beginPath();
+		ctx.rect(0, 0, w, h);
+		ctx.ellipse(o.cx, o.cy, o.rx, o.ry, 0, 0, Math.PI * 2, true);
+		ctx.fill('evenodd');
+		ctx.strokeStyle = '#ffffff';
+		ctx.lineWidth = 3;
+		ctx.setLineDash([10, 8]);
+		ctx.beginPath();
+		ctx.ellipse(o.cx, o.cy, o.rx, o.ry, 0, 0, Math.PI * 2);
+		ctx.stroke();
+		ctx.setLineDash([]);
+	}
+
+	function stopSelfieCamera() {
+		selfie.running = false;
+		if (selfie.timer) { window.clearInterval(selfie.timer); selfie.timer = null; }
+		if (selfie.stream) {
+			selfie.stream.getTracks().forEach(function (tr) { tr.stop(); });
+			selfie.stream = null;
+		}
+	}
+
+	function showSelfieFallback(why) {
+		selfie.box.classList.add('off');
+		selfie.status.textContent = why || t('The camera could not be started. Take a picture instead.');
+		$('idreg-selfie-photo').hidden = false;
+		$('idreg-selfie-photo-link').parentNode.hidden = true;
+	}
+
+	function startSelfieCamera() {
+		if (selfie.running) { return; }
+		if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) { showSelfieFallback(); return; }
+		selfie.box.classList.remove('off');
+		$('idreg-selfie-photo').hidden = true;
+		$('idreg-selfie-photo-link').parentNode.hidden = false;
+		$('idreg-take-selfie').disabled = true;
+		selfie.running = true;
+		selfie.status.textContent = t('Starting the camera …');
+		navigator.mediaDevices.getUserMedia({ audio: false, video: { facingMode: { ideal: 'user' }, width: { ideal: 1280 }, height: { ideal: 1280 } } })
+			.then(function (stream) {
+				if (!selfie.running) { stream.getTracks().forEach(function (tr) { tr.stop(); }); return; }
+				selfie.stream = stream;
+				selfie.video.srcObject = stream;
+				return selfie.video.play().catch(function () {});
+			}).then(function () {
+				if (!selfie.running) { return; }
+				selfie.status.textContent = t('Put your face inside the oval');
+				$('idreg-take-selfie').disabled = false;
+				drawSelfieOverlay();
+				selfie.timer = window.setInterval(drawSelfieOverlay, 500);
+			}).catch(function (e) {
+				console.warn('selfie camera', e);
+				selfie.running = false;
+				showSelfieFallback();
+			});
+	}
+
+	/** the picture around the oval (a little wider), as the server compares it with the document */
+	function grabSelfie() {
+		var v = selfie.video;
+		var vw = v.clientWidth, vh = v.clientHeight, iw = v.videoWidth, ih = v.videoHeight;
+		var sc = Math.max(vw / iw, vh / ih);
+		var dx = (vw - iw * sc) / 2, dy = (vh - ih * sc) / 2;
+		var o = ovalRect(vw, vh);
+		var l = Math.max(0, (o.cx - o.rx * 1.35 - dx) / sc), tp = Math.max(0, (o.cy - o.ry * 1.25 - dy) / sc);
+		var r = Math.min(iw, (o.cx + o.rx * 1.35 - dx) / sc), b = Math.min(ih, (o.cy + o.ry * 1.25 - dy) / sc);
+		var canvas = document.createElement('canvas');
+		canvas.width = Math.max(2, Math.round(r - l));
+		canvas.height = Math.max(2, Math.round(b - tp));
+		canvas.getContext('2d').drawImage(v, l, tp, r - l, b - tp, 0, 0, canvas.width, canvas.height);
+		return new Promise(function (resolve) { canvas.toBlob(resolve, 'image/jpeg', 0.9); });
+	}
+
+	function checkSelfie(blob) {
+		busy(true, t('Comparing with the photo on the document …'));
+		var form = new FormData();
+		form.append('image', blob, 'selfie.jpg');
+		form.append('scanId', state.scanId);
+		return post('/api/selfie', form, true).then(function (data) {
+			busy(false);
+			if (!data.ok) { message(data.message, 'error'); return false; }
+			if (data.review) {
+				message(t('We are not completely sure it is the same person, so an administrator will look at your registration.'), null);
+			}
+			step(4);
+			return true;
+		}).catch(function () {
+			busy(false);
+			message(t('Something went wrong. Please try again.'), 'error');
+			return false;
+		});
+	}
+
+	$('idreg-take-selfie').addEventListener('click', function () {
+		if (!selfie.running || !selfie.video.videoWidth) { return; }
+		grabSelfie().then(function (blob) {
+			if (!blob) { return; }
+			selfie.status.textContent = t('Comparing with the photo on the document …');
+			return checkSelfie(blob).then(function (ok) {
+				if (!ok && selfie.running) { selfie.status.textContent = t('Put your face inside the oval'); }
+			});
+		});
+	});
+
+	$('idreg-selfie-photo-link').addEventListener('click', function (event) {
+		event.preventDefault();
+		stopSelfieCamera();
+		showSelfieFallback(t('Take a selfie'));
+	});
+
 	$('idreg-selfie-file').addEventListener('change', function (event) {
 		var file = event.target.files && event.target.files[0];
 		if (!file) { return; }
@@ -461,21 +616,7 @@
 
 	$('idreg-check-selfie').addEventListener('click', function () {
 		if (!state.selfie) { return; }
-		busy(true, t('Comparing with the photo on the document …'));
-		var form = new FormData();
-		form.append('image', state.selfie, 'selfie.jpg');
-		form.append('scanId', state.scanId);
-		post('/api/selfie', form, true).then(function (data) {
-			busy(false);
-			if (!data.ok) { message(data.message, 'error'); return; }
-			if (data.review) {
-				message(t('We are not completely sure it is the same person, so an administrator will look at your registration.'), null);
-			}
-			step(4);
-		}).catch(function () {
-			busy(false);
-			message(t('Something went wrong. Please try again.'), 'error');
-		});
+		checkSelfie(state.selfie);
 	});
 
 	/* ---- step 4: the account ---- */
@@ -502,6 +643,7 @@
 			busy(false);
 			if (!data.ok) { message(data.message, 'error'); return; }
 			state.token = data.token;
+			state.email = data.email;
 			$('idreg-sent').textContent = t('We sent a code to {email}. Type it here, or open the link in that e-mail.', { email: data.email });
 			step(5);
 		}).catch(function () {
@@ -531,6 +673,10 @@
 		hint: 'idreg-password-hint', rules: 'idreg-rules', eye: 'idreg-eye',
 		minLength: conditions.minPasswordLength,
 		onChange: function (ok) { passwordOk = ok; $('idreg-finish').disabled = !ok || inFlight > 0; },
+	});
+
+	$('idreg-generate').addEventListener('click', function () {
+		window.idregPassword.fill({ input: 'idreg-password', repeat: 'idreg-password2', eye: 'idreg-eye', minLength: conditions.minPasswordLength });
 	});
 
 	$('idreg-finish').addEventListener('click', function () {
@@ -584,5 +730,28 @@
 		$('idreg-doc-lead').textContent = t('Hold your driving licence in front of the camera. We read your name from it while you hold it; no picture is stored.');
 	}
 
-	step(1);
+	var saved = savedState();
+	if (saved) {
+		state.scanId = saved.scanId || '';
+		state.token = saved.token || '';
+		state.email = saved.email || '';
+		state.card = saved.card;
+		if (state.card) {
+			$('idreg-given').value = state.card.givenNames || '';
+			$('idreg-surname').value = state.card.surname || '';
+			$('idreg-doc-type').textContent = state.card.type === 'driving_licence' ? t('Read from a driving licence.') : t('Read from an identity card.');
+		}
+		if (state.email) {
+			$('idreg-sent').textContent = t('We sent a code to {email}. Type it here, or open the link in that e-mail.', { email: state.email });
+		}
+		// a step that needs the scan or the token cannot be shown without it
+		var target = saved.step;
+		if (target >= 5 && !state.token) { target = 4; }
+		if (target >= 2 && !state.scanId) { target = 1; }
+		step(target);
+	} else {
+		step(1);
+	}
+	window.addEventListener('pagehide', stopSelfieCamera);
+	if (debugScan) { window.idregStep = step; }
 })();

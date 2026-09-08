@@ -81,16 +81,27 @@ declare(strict_types=1);
 		<!-- 3: the selfie -->
 		<section class="idreg-step" data-step="3" hidden>
 			<p class="idreg-lead"><?php p($l->t('Now a selfie, so we can see that the document is yours. It is compared with the photo on the document and then deleted.')); ?></p>
-			<label class="idreg-capture" for="idreg-selfie-file">
-				<span class="idreg-capture-icon" aria-hidden="true">🙂</span>
-				<span id="idreg-selfie-text"><?php p($l->t('Take a selfie')); ?></span>
-			</label>
-			<input type="file" id="idreg-selfie-file" accept="image/*" capture="user" hidden>
-			<img id="idreg-selfie-preview" alt="" hidden>
-			<p class="idreg-hint"><?php p($l->t('Hold the phone in front of your face, in good light, without sunglasses or a hat.')); ?></p>
+			<div class="idreg-cam selfie" id="idreg-selfie-cam">
+				<video id="idreg-selfie-video" playsinline muted autoplay></video>
+				<canvas id="idreg-selfie-overlay" aria-hidden="true"></canvas>
+				<div class="idreg-cam-status" id="idreg-selfie-status" role="status"><?php p($l->t('Starting the camera …')); ?></div>
+				<div class="idreg-cam-bar">
+					<button type="button" class="idreg-cam-button primary" id="idreg-take-selfie" disabled><?php p($l->t('Take the selfie')); ?></button>
+				</div>
+			</div>
+			<p class="idreg-hint"><?php p($l->t('Put your face inside the oval, in good light, without sunglasses or a hat.')); ?></p>
+			<p class="idreg-hint"><a href="#" id="idreg-selfie-photo-link"><?php p($l->t('Cannot use the camera? Take a picture')); ?></a></p>
+			<div id="idreg-selfie-photo" hidden>
+				<label class="idreg-capture" for="idreg-selfie-file">
+					<span class="idreg-capture-icon" aria-hidden="true">🙂</span>
+					<span id="idreg-selfie-text"><?php p($l->t('Take a selfie')); ?></span>
+				</label>
+				<input type="file" id="idreg-selfie-file" accept="image/*" capture="user" hidden>
+				<img id="idreg-selfie-preview" alt="" hidden>
+				<button type="button" class="idreg-button primary" id="idreg-check-selfie" disabled><?php p($l->t('Check the selfie')); ?></button>
+			</div>
 			<div class="idreg-buttons">
 				<button type="button" class="idreg-button" id="idreg-back-selfie"><?php p($l->t('Back')); ?></button>
-				<button type="button" class="idreg-button primary" id="idreg-check-selfie" disabled><?php p($l->t('Check the selfie')); ?></button>
 			</div>
 		</section>
 
@@ -149,6 +160,7 @@ declare(strict_types=1);
 					<li data-rule="digit"><?php p($l->t('At least one digit')); ?></li>
 					<li data-rule="symbol"><?php p($l->t('A symbol makes it stronger')); ?></li>
 				</ul>
+				<button type="button" class="idreg-generate" id="idreg-generate"><?php p($l->t('Generate a password for me')); ?></button>
 			</div>
 			<div class="idreg-field">
 				<label for="idreg-password2"><?php p($l->t('Repeat the password')); ?></label>

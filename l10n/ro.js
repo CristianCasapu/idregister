@@ -213,6 +213,11 @@ OC.L10N.register(
     "Documents are read with Tesseract %s, which reads photographed cards poorly. Install the neural reader with: occ idregister:install-ocr": "Actele se citesc cu Tesseract %s, care citește slab actele fotografiate. Instalează cititorul neural cu: occ idregister:install-ocr",
     "Documents are read with RapidOCR (neural text recognition), Python: {p}": "Actele se citesc cu RapidOCR (recunoaștere neurală de text), Python: {p}",
     "Documents are read with Tesseract {v}, which reads photographed cards poorly. Install the neural reader: occ idregister:install-ocr": "Actele se citesc cu Tesseract {v}, care citește slab actele fotografiate. Instalează cititorul neural: occ idregister:install-ocr",
-    "No text recognition is installed: occ idregister:install-ocr (RapidOCR, recommended) or sudo apt install tesseract-ocr tesseract-ocr-ron": "Nu e instalată nicio recunoaștere de text: occ idregister:install-ocr (RapidOCR, recomandat) sau sudo apt install tesseract-ocr tesseract-ocr-ron"
+    "No text recognition is installed: occ idregister:install-ocr (RapidOCR, recommended) or sudo apt install tesseract-ocr tesseract-ocr-ron": "Nu e instalată nicio recunoaștere de text: occ idregister:install-ocr (RapidOCR, recomandat) sau sudo apt install tesseract-ocr tesseract-ocr-ron",
+    "Generate a password for me": "Generează-mi o parolă",
+    "Take the selfie": "Fă selfie-ul",
+    "Put your face inside the oval, in good light, without sunglasses or a hat.": "Încadrează-ți fața în oval, în lumină bună, fără ochelari de soare sau pălărie.",
+    "Cannot use the camera? Take a picture": "Nu merge camera? Fă o poză",
+    "Put your face inside the oval": "Încadrează-ți fața în oval"
 },
 "nplurals=3; plural=(n==1?0:(((n%100>19)||((n%100==0)&&(n!=0)))?2:1));");

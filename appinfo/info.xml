@@ -18,7 +18,7 @@ number (CNP) is not stored either — only a salted hash of it, so the same card
 
 The card reader is a PHP port of the parser in the NecMat app (github.com/CristianCasapu/necmat).
     ]]></description>
-    <version>1.5.0</version>
+    <version>1.6.0</version>
     <licence>agpl</licence>
     <author mail="casapucristian@gmail.com">Cristian Casapu</author>
     <namespace>IdRegister</namespace>

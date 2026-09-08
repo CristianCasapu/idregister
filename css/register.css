@@ -418,3 +418,87 @@
 .idreg-cam.off video, .idreg-cam.off canvas, .idreg-cam.off .idreg-cam-bar { display: none; }
 .idreg-cam.off { aspect-ratio: auto; min-height: 56px; }
 .idreg-cam.off .idreg-cam-status { position: static; }
+
+/* ---- the guest page (login layout) styles inputs, buttons and text itself; ours must win ---- */
+.idreg .idreg-card { text-align: start; }
+.idreg .idreg-card h1, .idreg .idreg-lead, .idreg .idreg-hint, .idreg .idreg-note, .idreg .idreg-done { text-align: center; }
+.idreg .idreg-field input[type="text"],
+.idreg .idreg-field input[type="password"],
+.idreg .idreg-field input[type="email"],
+.idreg .idreg-field input[type="tel"] {
+	width: 100%;
+	margin: 0;
+	padding: 11px 12px;
+	font-size: 16px;
+	color: var(--color-main-text, #222);
+	text-align: start;
+	border: 2px solid var(--color-border-dark, #ccc);
+	border-radius: 8px;
+	box-sizing: border-box;
+}
+.idreg .idreg-password-wrap input[type="text"],
+.idreg .idreg-password-wrap input[type="password"] { padding-right: 44px; }
+.idreg button.idreg-eye {
+	position: absolute;
+	right: 6px;
+	top: 50%;
+	transform: translateY(-50%);
+	width: auto;
+	min-width: 0;
+	height: auto;
+	margin: 0;
+	padding: 6px;
+	border: none;
+	border-radius: 6px;
+	background: transparent;
+	font-weight: normal;
+	box-shadow: none;
+}
+.idreg .idreg-rules { list-style: none; text-align: start; }
+.idreg .idreg-rules li.met { color: var(--color-success, #46ba61); }
+.idreg .idreg-rules li.met::before { content: '✓'; }
+.idreg button.idreg-button, .idreg a.idreg-button {
+	display: inline-block;
+	width: auto;
+	min-width: 160px;
+	margin: 0;
+	padding: 12px 18px;
+	font-size: 1rem;
+	font-weight: 600;
+	border: 2px solid var(--color-border-dark, #ccc);
+	border-radius: 10px;
+	background: var(--color-main-background, #fff);
+	color: var(--color-main-text, #222);
+	box-shadow: none;
+}
+.idreg button.idreg-button.primary, .idreg a.idreg-button.primary {
+	border-color: transparent;
+	background: var(--color-primary-element, #0082c9);
+	color: var(--color-primary-element-text, #fff);
+}
+.idreg button.idreg-button:disabled { opacity: 0.5; }
+.idreg-card > button.idreg-button, .idreg-step > button.idreg-button, .idreg-card > a.idreg-button, .idreg-step > a.idreg-button {
+	display: block;
+	width: 100%;
+	margin-top: var(--idreg-gap);
+}
+.idreg button.idreg-generate {
+	display: inline-block;
+	width: auto;
+	min-width: 0;
+	margin: 8px 0 0;
+	padding: 6px 12px;
+	font-size: 0.9rem;
+	font-weight: 500;
+	border: 1px solid var(--color-border-dark, #ccc);
+	border-radius: 8px;
+	background: var(--color-background-dark, #ededed);
+	color: var(--color-main-text, #222);
+	box-shadow: none;
+	cursor: pointer;
+}
+.idreg button.idreg-generate:hover { background: var(--color-background-hover, #e0e0e0); }
+.idreg button.idreg-cam-button { min-width: 0; font-weight: 600; box-shadow: none; }
+.idreg .idreg-spinner { justify-content: center; }
+.idreg-cam.selfie video { transform: scaleX(-1); }
+.idreg-cam.selfie { aspect-ratio: 3 / 4; }

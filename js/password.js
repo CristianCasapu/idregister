@@ -89,5 +89,45 @@ window.idregPassword = (function () {
 		return update;
 	}
 
-	return { judge: judge, attach: attach };
+	/**
+	 * A random password that meets every rule: letters of both cases, digits and symbols,
+	 * without the characters that are easy to confuse (l/1/I, O/0).
+	 */
+	function generate(minLength) {
+		var lower = 'abcdefghijkmnpqrstuvwxyz', upper = 'ABCDEFGHJKLMNPQRSTUVWXYZ', digits = '23456789', symbols = '!@#$%&*+-=?';
+		var all = lower + upper + digits + symbols;
+		var length = Math.max((minLength || 10) + 4, 14);
+		var pick = function (set) {
+			var buf = new Uint32Array(1);
+			window.crypto.getRandomValues(buf);
+			return set.charAt(buf[0] % set.length);
+		};
+		var chars = [pick(lower), pick(upper), pick(digits), pick(symbols)];
+		while (chars.length < length) { chars.push(pick(all)); }
+		// shuffle (Fisher–Yates) so the guaranteed characters are not always first
+		for (var i = chars.length - 1; i > 0; i--) {
+			var buf = new Uint32Array(1);
+			window.crypto.getRandomValues(buf);
+			var j = buf[0] % (i + 1);
+			var tmp = chars[i]; chars[i] = chars[j]; chars[j] = tmp;
+		}
+		return chars.join('');
+	}
+
+	/** Put a generated password into both fields, show it, and let the meter judge it. */
+	function fill(opts) {
+		var input = document.getElementById(opts.input);
+		var repeat = opts.repeat ? document.getElementById(opts.repeat) : null;
+		var eye = opts.eye ? document.getElementById(opts.eye) : null;
+		if (!input) { return; }
+		var password = generate(opts.minLength);
+		input.value = password;
+		if (repeat) { repeat.value = password; }
+		input.type = 'text';
+		if (repeat) { repeat.type = 'text'; }
+		if (eye) { eye.classList.add('on'); }
+		input.dispatchEvent(new Event('input', { bubbles: true }));
+	}
+
+	return { judge: judge, attach: attach, generate: generate, fill: fill };
 })();

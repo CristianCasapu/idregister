@@ -44,6 +44,13 @@
 		onChange: function (ok) { ready = ok; $('idreg-finish').disabled = !ok || inFlight > 0; },
 	});
 
+	var generateButton = $('idreg-generate');
+	if (generateButton) {
+		generateButton.addEventListener('click', function () {
+			window.idregPassword.fill({ input: 'idreg-password', repeat: 'idreg-password2', eye: 'idreg-eye', minLength: conditions.minPasswordLength });
+		});
+	}
+
 	$('idreg-finish').addEventListener('click', function () {
 		if (!check()) { return; }
 		busy(true);
