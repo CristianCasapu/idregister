@@ -601,3 +601,20 @@ html.idreg-cam-open, html.idreg-cam-open body { overflow: hidden; }
 /* the native app, suggested when the scan in the browser gets nowhere */
 .idreg-app-hint { font-weight: 600; }
 .idreg-app-hint a { text-decoration: underline; }
+
+/* messages and the spinner stay visible while the camera fills the screen */
+html.idreg-cam-open .idreg-message,
+html.idreg-cam-open .idreg-spinner {
+	position: fixed;
+	left: 12px;
+	right: 12px;
+	top: calc(max(12px, env(safe-area-inset-top)) + 64px);
+	z-index: 10001;
+	margin: 0;
+}
+html.idreg-cam-open .idreg-spinner {
+	background: rgba(0, 0, 0, 0.62);
+	color: #fff;
+	padding: 10px 12px;
+	border-radius: 8px;
+}

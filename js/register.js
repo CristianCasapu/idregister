@@ -599,7 +599,12 @@
 		busy(true, t('Creating the account …'));
 		post('/api/express', { scanId: state.scanId, handoff: handoff, terms: true }).then(function (data) {
 			busy(false);
-			if (!data.ok) { message(data.message, 'error'); return; }
+			if (!data.ok) {
+				// the camera may still fill the screen (after the selfie): say it there too
+				message(data.message, 'error');
+				if (selfie && selfie.running) { selfie.status.textContent = data.message || ''; }
+				return;
+			}
 			showCreated(data);
 		}).catch(function () {
 			busy(false);
@@ -720,7 +725,7 @@
 		form.append('scanId', state.scanId);
 		return post('/api/selfie', form, true).then(function (data) {
 			busy(false);
-			if (!data.ok) { message(data.message, 'error'); return false; }
+			if (!data.ok) { message(data.message, 'error'); selfie.status.textContent = data.message || ''; return false; }
 			if (data.review) {
 				message(t('We are not completely sure it is the same person, so an administrator will look at your registration.'), null);
 			}
