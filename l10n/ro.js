@@ -1,6 +1,9 @@
 OC.L10N.register(
     "idregister",
     {
+    "Looking for the expiry date — the whole card in the frame": "Caut data expirării — tot actul în chenar",
+    "This identity card has expired (%s). Registration needs a valid one.": "Această carte de identitate a expirat (%s). Înregistrarea cere un act valabil.",
+    "Require a valid document: an expired card is refused; when the expiry date cannot be read, an administrator reviews the registration": "Cere un act valabil: un act expirat e refuzat; când data expirării nu poate fi citită, un administrator verifică înregistrarea",
     "Come closer": "Apropie-te",
     "Move back a little": "Depărtează-te puțin",
     "Centre your face in the oval": "Centrează-ți fața în oval",

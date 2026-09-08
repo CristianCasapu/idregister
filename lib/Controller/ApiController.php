@@ -143,7 +143,7 @@ class ApiController extends Controller
         $acceptIdCard = (bool) $this->settings->get('acceptIdCard');
         $acceptLicence = (bool) $this->settings->get('acceptDrivingLicence');
         try {
-            $frame = $this->liveScan->frame($data, $acceptIdCard, $acceptLicence, (bool) $this->settings->get('requireConfirmedName'), (bool) $this->settings->get('requirePhysical'));
+            $frame = $this->liveScan->frame($data, $acceptIdCard, $acceptLicence, (bool) $this->settings->get('requireConfirmedName'), (bool) $this->settings->get('requirePhysical'), (bool) $this->settings->get('requireValidDocument'));
         } catch (\Throwable $e) {
             unset($data);
             $this->logger->error('idregister: a live frame could not be read', ['exception' => $e]);
@@ -214,6 +214,22 @@ class ApiController extends Controller
             $message = $this->l->t('The personal number could not be read from the card. Take the picture again, straight and in good light.');
         }
 
+        // the card has to be valid: an expired one is refused; one whose expiry could not be read
+        // goes through, but an administrator looks at it
+        $expiryUnknown = false;
+        if ($enough && DocumentReader::TYPE_ID_CARD === $card['type'] && (bool) $this->settings->get('requireValidDocument')) {
+            $expiry = (string) ($card['expiry'] ?? '');
+            $sure = (bool) ($card['expirySure'] ?? false);
+            if ('' !== $expiry && $expiry < (new \DateTimeImmutable('today'))->format('Y-m-d')) {
+                if ($sure) {
+                    return ['ok' => false, 'message' => $this->l->t('This identity card has expired (%s). Registration needs a valid one.', [substr($expiry, 8, 2).'.'.substr($expiry, 5, 2).'.'.substr($expiry, 0, 4)])];
+                }
+                // a date in the past that is not clearly the expiry (the birth date, say): as good as unread
+                $expiry = '';
+            }
+            $expiryUnknown = '' === $expiry;
+        }
+
         $age = self::ageFrom($card);
         $minAge = (int) $this->settings->get('minAge');
         if ($enough && $minAge > 0 && null !== $age && $age < $minAge) {
@@ -249,6 +265,8 @@ class ApiController extends Controller
                 'faceVector' => $vector,
                 'selfie' => $needsSelfie ? '' : FaceMatch::VERDICT_MATCH,
                 'liveness' => (string) ($card['liveness'] ?? Liveness::VERDICT_UNSURE),
+                'expiry' => (string) ($card['expiry'] ?? ''),
+                'expiryUnknown' => $expiryUnknown,
                 'time' => time(),
             ]);
             if ('' !== $handoff) {
@@ -302,6 +320,7 @@ class ApiController extends Controller
         if ('' !== $cnp && !IdCardParser::isValidCnp($cnp)) {
             $cnp = '';
         }
+        $expiry = null;
         if (preg_match('/^\d{6}$/', $dateOfExpiry)) {
             $expiry = \DateTimeImmutable::createFromFormat('ymd', $dateOfExpiry);
             if ($expiry && $expiry < new \DateTimeImmutable('today')) {
@@ -323,6 +342,10 @@ class ApiController extends Controller
             $card['age'] = IdCardParser::ageFromCnp($cnp);
         }
         $card['liveness'] = 'chip';
+        if (preg_match('/^\d{6}$/', $dateOfExpiry) && $expiry) {
+            $card['expiry'] = $expiry->format('Y-m-d');
+            $card['expiryUnknown'] = false;
+        }
         $card['chipDocument'] = mb_substr(preg_replace('/[^A-Z0-9]/', '', strtoupper($documentNumber)) ?? '', 0, 12);
 
         // the photo on the chip: the face the selfie is compared with (better than the printed one)
@@ -449,7 +472,8 @@ class ApiController extends Controller
                     'type' => (string) ($card['type'] ?? DocumentReader::TYPE_ID_CARD),
                     'birthDate' => (string) ($card['birthDate'] ?? ''),
                     'needsReview' => FaceMatch::VERDICT_REVIEW === ($card['selfie'] ?? '')
-                    || ((bool) $this->settings->get('requirePhysical') && !\in_array((string) ($card['liveness'] ?? Liveness::VERDICT_UNSURE), [Liveness::VERDICT_OK, 'chip'], true)),
+                    || ((bool) $this->settings->get('requirePhysical') && !\in_array((string) ($card['liveness'] ?? Liveness::VERDICT_UNSURE), [Liveness::VERDICT_OK, 'chip'], true))
+                    || (bool) ($card['expiryUnknown'] ?? false),
                     'selfieDistance' => (float) ($card['selfieDistance'] ?? 0),
                 ],
                 $email,
@@ -501,7 +525,8 @@ class ApiController extends Controller
                 'type' => (string) ($card['type'] ?? DocumentReader::TYPE_ID_CARD),
                 'birthDate' => (string) ($card['birthDate'] ?? ''),
                 'needsReview' => FaceMatch::VERDICT_REVIEW === ($card['selfie'] ?? '')
-                    || ((bool) $this->settings->get('requirePhysical') && !\in_array((string) ($card['liveness'] ?? Liveness::VERDICT_UNSURE), [Liveness::VERDICT_OK, 'chip'], true)),
+                    || ((bool) $this->settings->get('requirePhysical') && !\in_array((string) ($card['liveness'] ?? Liveness::VERDICT_UNSURE), [Liveness::VERDICT_OK, 'chip'], true))
+                    || (bool) ($card['expiryUnknown'] ?? false),
                 'selfieDistance' => (float) ($card['selfieDistance'] ?? 0),
             ]);
             $this->session->remove(self::SESSION_PREFIX.$scanId);

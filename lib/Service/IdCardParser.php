@@ -92,6 +92,8 @@ final class IdCardParser
         [$surname, $surnameSure] = self::pick($printedSurname, $mrzSurname);
         [$given, $givenSure] = self::pick($printedGiven, $mrzGiven);
 
+        $expiryRead = self::expiryFromLines($lines);
+
         return self::result(
             self::titleCase($surname),
             self::titleCase($given),
@@ -99,6 +101,8 @@ final class IdCardParser
             $surnameSure && '' !== $surname,
             $givenSure && '' !== $given,
             '' !== $cnp && self::isValidCnp($cnp),
+            $expiryRead['expiry'],
+            $expiryRead['sure'],
         );
     }
 
@@ -133,8 +137,9 @@ final class IdCardParser
         [$surname, $surnameSure] = $pick($a['surname'], $a['surnameSure'], $b['surname'], $b['surnameSure']);
         [$given, $givenSure] = $pick($a['givenNames'], $a['givenSure'], $b['givenNames'], $b['givenSure']);
         [$cnp, $cnpSure] = $pick($a['cnp'], $a['cnpSure'], $b['cnp'], $b['cnpSure']);
+        [$expiry, $expirySure] = $pick((string) ($a['expiry'] ?? ''), (bool) ($a['expirySure'] ?? false), (string) ($b['expiry'] ?? ''), (bool) ($b['expirySure'] ?? false));
 
-        return self::result($surname, $given, $cnp, $surnameSure, $givenSure, $cnpSure);
+        return self::result($surname, $given, $cnp, $surnameSure, $givenSure, $cnpSure, $expiry, $expirySure);
     }
 
     /** @return array{surname:string, givenNames:string, cnp:string, surnameSure:bool, givenSure:bool, cnpSure:bool, confidence:float} */
@@ -247,6 +252,83 @@ final class IdCardParser
     }
 
     /** CNP rebuilt from the second MRZ line: sex digit + birth date + optional field. */
+    /**
+     * The end of validity, from the machine readable zone (old card) or the printed date next to
+     * "Data expirării" / "Valabilitate"; sure when it came from either of those. Without a label,
+     * the latest date printed on the card is taken, unsure (the expiry is always the latest one).
+     *
+     * @param list<string> $lines
+     *
+     * @return array{expiry:string, sure:bool} expiry as Y-m-d or ''
+     */
+    public static function expiryFromLines(array $lines): array
+    {
+        foreach ($lines as $line) {
+            $mrz = self::expiryFromMrz($line);
+            if (null !== $mrz) {
+                return ['expiry' => $mrz, 'sure' => true];
+            }
+        }
+        $dates = static function (string $text): array {
+            $out = [];
+            if (preg_match_all('/(\d{2})[ .\-\/]?(\d{2})[ .\-\/]?((?:19|20)\d{2})/', self::fixDigits($text), $mm, PREG_SET_ORDER)) {
+                foreach ($mm as $d) {
+                    if ((int) $d[1] >= 1 && (int) $d[1] <= 31 && (int) $d[2] >= 1 && (int) $d[2] <= 12) {
+                        $out[] = $d[3].'-'.$d[2].'-'.$d[1];
+                    }
+                }
+            }
+
+            return $out;
+        };
+        $n = \count($lines);
+        for ($i = 0; $i < $n; ++$i) {
+            $norm = self::norm($lines[$i]);
+            if (!str_contains($norm, 'expir') && !str_contains($norm, 'valabil') && !str_contains($norm, 'validit')) {
+                continue;
+            }
+            for ($j = $i; $j <= min($i + 2, $n - 1); ++$j) {
+                $found = $dates($lines[$j]);
+                if (\count($found) > 0) {
+                    return ['expiry' => $found[\count($found) - 1], 'sure' => true];
+                }
+            }
+        }
+        $all = [];
+        foreach ($lines as $line) {
+            if (!self::isMrzLine($line)) {
+                $all = array_merge($all, $dates($line));
+            }
+        }
+        if (0 === \count($all)) {
+            return ['expiry' => '', 'sure' => false];
+        }
+        rsort($all);
+
+        return ['expiry' => $all[0], 'sure' => false];
+    }
+
+    /** The expiry date from the second line of the old card's machine readable zone (Y-m-d), or null. */
+    public static function expiryFromMrz(string $line): ?string
+    {
+        $n = self::mrzNorm($line);
+        if (1 !== preg_match('/([A-Z0-9<]{9})([0-9OISB])ROU([0-9OISB]{6})([0-9OISB])([MF<])([0-9OISB]{6})([0-9OISB])/', $n, $m)) {
+            return null;
+        }
+        $d = self::fixDigits($m[6]);
+        if (!preg_match('/^\d{6}$/', $d)) {
+            return null;
+        }
+        $yy = (int) substr($d, 0, 2);
+        $mo = (int) substr($d, 2, 2);
+        $da = (int) substr($d, 4, 2);
+        if ($mo < 1 || $mo > 12 || $da < 1 || $da > 31) {
+            return null;
+        }
+
+        return \sprintf('%04d-%02d-%02d', ($yy >= 70 ? 1900 : 2000) + $yy, $mo, $da);
+    }
+
     public static function cnpFromMrz(string $line): ?string
     {
         $n = self::mrzNorm($line);
@@ -281,9 +363,9 @@ final class IdCardParser
     }
 
     /**
-     * @return array{surname:string, givenNames:string, cnp:string, surnameSure:bool, givenSure:bool, cnpSure:bool, confidence:float}
+     * @return array{surname:string, givenNames:string, cnp:string, surnameSure:bool, givenSure:bool, cnpSure:bool, expiry:string, expirySure:bool, confidence:float}
      */
-    private static function result(string $surname, string $given, string $cnp, bool $surnameSure, bool $givenSure, bool $cnpSure): array
+    private static function result(string $surname, string $given, string $cnp, bool $surnameSure, bool $givenSure, bool $cnpSure, string $expiry = '', bool $expirySure = false): array
     {
         // how much of the card we are sure about: names carry the registration, the CNP confirms the read
         $confidence = 0.0;
@@ -298,6 +380,8 @@ final class IdCardParser
             'surnameSure' => $surnameSure,
             'givenSure' => $givenSure,
             'cnpSure' => $cnpSure,
+            'expiry' => $expiry,
+            'expirySure' => $expirySure,
             'confidence' => round(min(1.0, $confidence), 2),
         ];
     }

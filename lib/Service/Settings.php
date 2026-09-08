@@ -57,6 +57,7 @@ final class Settings
         // the selfie has to show the person on the document
         'requireSelfie' => true,
         'requirePhysical' => true, // refuse copies and screens; ask for a tilt when unsure
+        'requireValidDocument' => true, // an expired card is refused; unreadable expiry → administrator review
         'androidAppUrl' => 'https://github.com/CristianCasapu/idregister-android/releases/latest', // suggested when the web scan struggles; empty = never
         // measured on a real library: same person 0.43–1.13, different people 1.27–1.49
         'selfieMatchDistance' => 1.15,

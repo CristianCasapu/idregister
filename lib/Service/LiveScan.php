@@ -38,7 +38,7 @@ final class LiveScan
      *
      * @return array{status:string, level:int, boxes:list<array{x:float,y:float,w:float,h:float}>, done:bool, lines:int, frames:int, blocked:string, tilt:bool}
      */
-    public function frame(string $jpeg, bool $acceptIdCard, bool $acceptLicence, bool $requireConfirmedName, bool $requirePhysical = true): array
+    public function frame(string $jpeg, bool $acceptIdCard, bool $acceptLicence, bool $requireConfirmedName, bool $requirePhysical = true, bool $requireValid = true): array
     {
         $state = $this->session->get(self::KEY);
         if (!\is_array($state)) {
@@ -122,11 +122,22 @@ final class LiveScan
         $namesOk = '' !== $card['surname'] && '' !== $card['givenNames']
             && (!$requireConfirmedName || ($card['surnameSure'] && $card['givenSure']));
         $idDone = $acceptIdCard && $card['cnpSure'] && $namesOk && $state['stableCount'] >= 2;
+        // the end of validity: a few more frames to find it when everything else is read
+        $state['expiryWait'] = (int) ($state['expiryWait'] ?? 0);
+        $expiryMissing = $requireValid && $idDone && '' === (string) ($card['expiry'] ?? '');
+        if ($expiryMissing && $state['expiryWait'] < 6) {
+            ++$state['expiryWait'];
+            $idDone = false;
+        }
         $licenceDone = $acceptLicence && !$card['cnpSure'] && $state['looksLikeLicence'] >= 2
             && null !== $state['licence'] && $state['nameCount'] >= 2;
         $done = $idDone || $licenceDone;
 
         [$status, $level] = $this->assess($lines, $read['boxes'], $card, $state, $acceptLicence, $done);
+        if (!$done && $expiryMissing && $state['expiryWait'] <= 6 && $card['cnpSure'] && $namesOk) {
+            $status = $this->l->t('Looking for the expiry date — the whole card in the frame');
+            $level = 1;
+        }
 
         // a copy or a screen: nothing is accepted from it; a card read but not yet proven
         // physical: ask for a small tilt (the glare moves on a real card), a few frames long
@@ -203,6 +214,8 @@ final class LiveScan
             'cnp' => $card['cnp'],
             'cnpSure' => $card['cnpSure'],
             'nameSure' => $card['surnameSure'] && $card['givenSure'],
+            'expiry' => (string) ($card['expiry'] ?? ''),
+            'expirySure' => (bool) ($card['expirySure'] ?? false),
             'birthDate' => '',
             'confidence' => $card['confidence'],
             'lines' => 0,
