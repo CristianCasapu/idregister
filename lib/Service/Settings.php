@@ -92,7 +92,8 @@ final class Settings
             $default = self::DEFAULTS[$key];
             $raw = match (true) {
                 \is_bool($default) => filter_var($value, FILTER_VALIDATE_BOOLEAN) ? '1' : '0',
-                \is_int($default) => (string) max(1, (int) $value),
+                // 0 means "no limit" / "no minimum" for the counts; the other numbers stay at least 1
+                \is_int($default) => (string) max(\in_array($key, ['maxAccounts', 'minAge'], true) ? 0 : 1, (int) $value),
                 \is_float($default) => (string) min(1.0, max(0.0, (float) $value)),
                 default => trim((string) $value),
             };
