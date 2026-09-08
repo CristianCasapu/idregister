@@ -167,6 +167,33 @@
 		}
 	}
 
+	/** The hidden sign-in form, ready to post: session token, where to land, the time zone. */
+	function prepareLogin() {
+		// the browser's password manager is asked directly where it exists (Chrome, Android)
+		try {
+			if (window.PasswordCredential && navigator.credentials && created) {
+				navigator.credentials.store(new window.PasswordCredential({ id: created.uid, password: created.password, name: created.name || created.uid }));
+			}
+		} catch (e) { /* not supported */ }
+		try { window.localStorage.removeItem(STORE); window.sessionStorage.removeItem('idregister.created'); } catch (e) { /* ignore */ }
+		// Nextcloud sends this page with "Referrer-Policy: no-referrer", which makes the browser post
+		// the sign-in with "Origin: null" — and the sign-in refuses that. Same-origin is enough here.
+		if (!document.querySelector('meta[name="referrer"]')) {
+			var meta = document.createElement('meta');
+			meta.name = 'referrer';
+			meta.content = 'same-origin';
+			document.head.appendChild(meta);
+		}
+		$('idreg-login-form').action = (typeof OC !== 'undefined' && OC.generateUrl) ? OC.generateUrl('/login') : '/index.php/login';
+		// the sign-in needs the session's request token, like the login form itself
+		$('idreg-login-token').value = (typeof OC !== 'undefined' && OC.requestToken) || (document.head.getAttribute('data-requesttoken') || '');
+		$('idreg-login-redirect').value = (typeof OC !== 'undefined' && OC.generateUrl) ? OC.generateUrl('/settings/user') : '/index.php/settings/user';
+		try {
+			$('idreg-login-tz').value = Intl.DateTimeFormat().resolvedOptions().timeZone || '';
+			$('idreg-login-tzo').value = String(-new Date().getTimezoneOffset() / 60);
+		} catch (e) { /* ignore */ }
+	}
+
 	function followHandoff(token) {
 		var order = ['waiting', 'opened', 'document', 'registered', 'confirmed'];
 		var timer = window.setInterval(function () {
@@ -184,8 +211,8 @@
 						$('idreg-login-user').value = data.login.uid;
 						$('idreg-login-password').value = data.login.password;
 						window.setTimeout(function () {
-							var form = $('idreg-login-form');
-							if (form.requestSubmit) { form.requestSubmit(); } else { form.dispatchEvent(new Event('submit')); form.submit(); }
+							prepareLogin();
+							$('idreg-login-form').submit();
 						}, 600);
 					} else {
 						message(t('The account of {name} is ready. You can sign in.', { name: data.name || '' }), 'ok');
@@ -553,29 +580,7 @@
 			else { $(button.dataset.copy).select(); try { document.execCommand('copy'); } catch (e) { /* ignore */ } done(); }
 		});
 	});
-	$('idreg-login-form').addEventListener('submit', function () {
-		// the browser's password manager is asked directly where it exists (Chrome, Android)
-		try {
-			if (window.PasswordCredential && navigator.credentials && created) {
-				navigator.credentials.store(new window.PasswordCredential({ id: created.uid, password: created.password, name: created.name || created.uid }));
-			}
-		} catch (e) { /* not supported */ }
-		try { window.localStorage.removeItem(STORE); window.sessionStorage.removeItem('idregister.created'); } catch (e) { /* ignore */ }
-		// Nextcloud sends this page with "Referrer-Policy: no-referrer", which makes the browser post
-		// the sign-in with "Origin: null" — and the sign-in refuses that. Same-origin is enough here.
-		var meta = document.createElement('meta');
-		meta.name = 'referrer';
-		meta.content = 'same-origin';
-		document.head.appendChild(meta);
-		$('idreg-login-form').action = (typeof OC !== 'undefined' && OC.generateUrl) ? OC.generateUrl('/login') : '/index.php/login';
-		// the sign-in needs the session's request token, like the login form itself
-		$('idreg-login-token').value = (typeof OC !== 'undefined' && OC.requestToken) || (document.head.getAttribute('data-requesttoken') || '');
-		$('idreg-login-redirect').value = (typeof OC !== 'undefined' && OC.generateUrl) ? OC.generateUrl('/settings/user') : '/index.php/settings/user';
-		try {
-			$('idreg-login-tz').value = Intl.DateTimeFormat().resolvedOptions().timeZone || '';
-			$('idreg-login-tzo').value = String(-new Date().getTimezoneOffset() / 60);
-		} catch (e) { /* ignore */ }
-	});
+	$('idreg-login-form').addEventListener('submit', prepareLogin);
 
 	/* ---- step 3: the selfie, with the front camera and a face-shaped guide ---- */
 	var selfie = { video: $('idreg-selfie-video'), overlay: $('idreg-selfie-overlay'), box: $('idreg-selfie-cam'), status: $('idreg-selfie-status'), stream: null, running: false, timer: null };
