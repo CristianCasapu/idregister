@@ -15,6 +15,7 @@ use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http\Attribute\NoCSRFRequired;
 use OCP\AppFramework\Http\Attribute\OpenAPI;
 use OCP\AppFramework\Http\Attribute\PublicPage;
+use OCP\AppFramework\Http\FeaturePolicy;
 use OCP\AppFramework\Http\RedirectResponse;
 use OCP\AppFramework\Http\Response;
 use OCP\AppFramework\Http\TemplateResponse;
@@ -75,6 +76,8 @@ class PageController extends Controller
         $this->initialState->provideInitialState('loginUrl', $this->urlGenerator->linkToRouteAbsolute('core.login.showLoginForm'));
 
         $response = new TemplateResponse(Application::APP_ID, 'index', [], TemplateResponse::RENDER_AS_GUEST);
+        // Nextcloud forbids the camera on every page by default; the live reading of the document needs it
+        $response->setFeaturePolicy((new FeaturePolicy())->addAllowedCameraDomain("'self'"));
         $policy = new \OCP\AppFramework\Http\ContentSecurityPolicy();
         $policy->addAllowedImageDomain('blob:');
         $response->setContentSecurityPolicy($policy);

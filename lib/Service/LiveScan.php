@@ -213,7 +213,7 @@ final class LiveScan
         if (!$looksLikeId) {
             return [$this->l->t('This does not look like a Romanian identity document'), 0];
         }
-        if ($widthRatio < 0.55) {
+        if ($widthRatio < 0.45) {
             return [$this->l->t('Move closer to the document'), 1];
         }
         if ($outside) {
