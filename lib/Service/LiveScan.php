@@ -42,7 +42,7 @@ final class LiveScan
     {
         $state = $this->session->get(self::KEY);
         if (!\is_array($state)) {
-            $state = ['card' => IdCardParser::empty(), 'licence' => null, 'stableCnp' => '', 'stableCount' => 0, 'stableName' => '', 'nameCount' => 0, 'frames' => 0, 'looksLikeLicence' => 0];
+            $state = ['card' => IdCardParser::empty(), 'licence' => null, 'stableCnp' => '', 'stableCount' => 0, 'stableName' => '', 'nameCount' => 0, 'printed' => '', 'printedCount' => 0, 'frames' => 0, 'looksLikeLicence' => 0];
         }
 
         $read = $this->ocr->readFrame($jpeg);
@@ -50,6 +50,17 @@ final class LiveScan
         ++$state['frames'];
 
         $frameCard = IdCardParser::parse($lines);
+        // Names printed on the card, without a machine readable zone to confirm them (the new
+        // electronic card): the same reading in two consecutive frames counts as confirmed.
+        if ('' !== $frameCard['surname'] && '' !== $frameCard['givenNames']) {
+            $printed = $frameCard['surname'].'|'.$frameCard['givenNames'];
+            $state['printedCount'] = $printed === $state['printed'] ? $state['printedCount'] + 1 : 1;
+            $state['printed'] = $printed;
+            if ($state['printedCount'] >= 2) {
+                $frameCard['surnameSure'] = true;
+                $frameCard['givenSure'] = true;
+            }
+        }
         $state['card'] = IdCardParser::merge($state['card'], $frameCard);
         if ($frameCard['cnpSure']) {
             if ($frameCard['cnp'] === $state['stableCnp']) {

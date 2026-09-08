@@ -228,6 +228,11 @@
 		// the text the server found, back from the crop into the view
 		var crop = cropRect();
 		var m = mapping();
+		if (debugScan) {
+			ctx.strokeStyle = 'rgba(255,0,255,0.9)';
+			ctx.lineWidth = 2;
+			ctx.strokeRect(crop.l * m.sc + m.dx, crop.t * m.sc + m.dy, crop.w * m.sc, crop.h * m.sc);
+		}
 		ctx.strokeStyle = 'rgba(100,181,246,0.9)';
 		ctx.lineWidth = 2;
 		cam.boxes.forEach(function (b) {
@@ -247,9 +252,15 @@
 		return new Promise(function (resolve) { canvas.toBlob(resolve, 'image/jpeg', 0.85); });
 	}
 
+	var debugScan = /[?&]debug=1/.test(window.location.search);
 	function setStatus(text, level) {
 		cam.status.textContent = text;
 		cam.level = level;
+		if (debugScan && cam.video.videoWidth) {
+			var m = mapping(), c = cropRect();
+			cam.status.textContent += ' [' + m.iw + 'x' + m.ih + ' → ' + Math.round(m.vw) + 'x' + Math.round(m.vh) + ' sc ' + m.sc.toFixed(3)
+				+ ' crop ' + Math.round(c.l) + ',' + Math.round(c.t) + ' ' + Math.round(c.w) + 'x' + Math.round(c.h) + ']';
+		}
 	}
 
 	function stopCamera() {

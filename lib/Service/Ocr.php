@@ -4,12 +4,17 @@ declare(strict_types=1);
 
 namespace OCA\IdRegister\Service;
 
+use OCA\IdRegister\AppInfo\Application;
+use OCP\IAppConfig;
 use OCP\ITempManager;
 use Psr\Log\LoggerInterface;
+use Symfony\Component\Process\Process;
 
 /**
- * Reads the text of an identity card with Tesseract. The picture is only ever a temporary
- * file: it is normalised (EXIF rotation, downscale, grayscale, contrast), read, and deleted
+ * Reads the text of an identity document. Two engines: RapidOCR (neural detection and
+ * recognition on ONNX Runtime, the same kind of reader as ML Kit in NecMat — it reads a
+ * photographed card reliably) when it is installed in the Python environment, and Tesseract
+ * as the fallback. The picture is only ever a temporary file: normalised, read, deleted
  * immediately afterwards — nothing about the card is stored.
  */
 final class Ocr
@@ -22,10 +27,181 @@ final class Ocr
     /** a live frame is enlarged to this size before reading (small letters read badly) */
     public const FRAME_MIN_PX = 1600;
 
+    public const ENGINE_RAPIDOCR = 'rapidocr';
+    public const ENGINE_TESSERACT = 'tesseract';
+    /** RapidOCR: how sure a line has to be for a printed name to count as confirmed without the MRZ */
+    public const SURE_CONFIDENCE = 0.9;
+
     public function __construct(
         private ITempManager $tempManager,
         private LoggerInterface $logger,
+        private FaceMatch $faceMatch,
+        private IAppConfig $appConfig,
     ) {}
+
+    /**
+     * Which engine reads the documents, and whether reading works at all.
+     *
+     * @return array{ok:bool, engine:string, python:string, rapidocr:bool, tesseract:array{ok:bool, version:string, languages:list<string>, missing:list<string>}, hint:string}
+     */
+    public function engineStatus(): array
+    {
+        $tesseract = self::status();
+        $python = $this->faceMatch->pythonBinary();
+        $rapid = $this->rapidAvailable($python);
+        $engine = $rapid ? self::ENGINE_RAPIDOCR : ($tesseract['ok'] ? self::ENGINE_TESSERACT : '');
+
+        return [
+            'ok' => '' !== $engine,
+            'engine' => $engine,
+            'python' => $python,
+            'rapidocr' => $rapid,
+            'tesseract' => $tesseract,
+            'hint' => $rapid ? '' : 'occ idregister:install-ocr',
+        ];
+    }
+
+    /** Is RapidOCR importable by this Python? (checked at most once an hour) */
+    private function rapidAvailable(string $python): bool
+    {
+        if ('' === $python || !is_executable($python)) {
+            return false;
+        }
+        $cached = json_decode($this->appConfig->getValueString(Application::APP_ID, 'ocrCheck', ''), true);
+        if (\is_array($cached) && ($cached['python'] ?? '') === $python && (time() - (int) ($cached['time'] ?? 0)) < 3600) {
+            return (bool) $cached['ok'];
+        }
+        $process = new Process([$python, '-c', 'import rapidocr_onnxruntime, cv2, numpy']);
+        $process->setTimeout(60);
+        try {
+            $process->run();
+            $ok = $process->isSuccessful();
+        } catch (\Throwable $e) {
+            $ok = false;
+        }
+        $this->appConfig->setValueString(Application::APP_ID, 'ocrCheck', json_encode(['python' => $python, 'ok' => $ok, 'time' => time()]));
+
+        return $ok;
+    }
+
+    /** Forget the cached engine check (after an installation) */
+    public function forgetEngineCheck(): void
+    {
+        $this->appConfig->deleteKey(Application::APP_ID, 'ocrCheck');
+    }
+
+    /**
+     * RapidOCR on one prepared picture.
+     *
+     * @return array{lines:list<string>, boxes:list<array{x:float,y:float,w:float,h:float}>, confs:list<float>, width:int, height:int}|null null when the engine is missing or failed
+     */
+    private function rapid(string $imagePath): ?array
+    {
+        $python = $this->faceMatch->pythonBinary();
+        if (!$this->rapidAvailable($python)) {
+            return null;
+        }
+        $process = new Process(
+            [$python, \dirname(__DIR__, 2).'/src/ocr_frame.py', $imagePath],
+            \dirname(__DIR__, 2),
+            ['TMPDIR' => (string) $this->tempManager->getTempBaseDir(), 'OMP_NUM_THREADS' => '2'],
+        );
+        $process->setTimeout(self::TIMEOUT);
+        try {
+            $process->run();
+        } catch (\Throwable $e) {
+            $this->logger->warning('idregister: RapidOCR failed: '.$e->getMessage());
+
+            return null;
+        }
+        if (!$process->isSuccessful()) {
+            $lines = array_slice(array_filter(explode("\n", trim($process->getErrorOutput()))), -2);
+            $this->logger->warning('idregister: RapidOCR failed: '.implode(' | ', $lines));
+
+            return null;
+        }
+        $out = json_decode(trim($process->getOutput()), true);
+        if (!\is_array($out) || !isset($out['lines'])) {
+            return null;
+        }
+        $lines = [];
+        $boxes = [];
+        $confs = [];
+        foreach ($out['lines'] as $line) {
+            $lines[] = (string) $line['text'];
+            $boxes[] = ['x' => (float) $line['x'], 'y' => (float) $line['y'], 'w' => (float) $line['w'], 'h' => (float) $line['h']];
+            $confs[] = (float) $line['conf'];
+        }
+
+        return ['lines' => $lines, 'boxes' => $boxes, 'confs' => $confs, 'width' => (int) $out['width'], 'height' => (int) $out['height']];
+    }
+
+    /**
+     * The picture as the neural reader likes it: colour, upright, at most MAX_PX, as a JPEG.
+     */
+    private function prepareColour(string $imageData, int $degrees): ?string
+    {
+        if (!class_exists(\Imagick::class)) {
+            return null;
+        }
+        $target = $this->tempManager->getTemporaryFile('.jpg');
+        if (false === $target) {
+            return null;
+        }
+
+        try {
+            $image = new \Imagick();
+            $image->readImageBlob($imageData);
+            $image->setImageOrientation($image->getImageOrientation() ?: \Imagick::ORIENTATION_TOPLEFT);
+            $image->autoOrient();
+            if (0 !== $degrees) {
+                $image->rotateImage(new \ImagickPixel('black'), $degrees);
+            }
+            $w = $image->getImageWidth();
+            $h = $image->getImageHeight();
+            if (max($w, $h) > self::MAX_PX) {
+                $scale = self::MAX_PX / max($w, $h);
+                $image->resizeImage((int) ($w * $scale), (int) ($h * $scale), \Imagick::FILTER_LANCZOS, 1);
+            }
+            $image->setImageFormat('jpeg');
+            $image->setImageCompressionQuality(92);
+            $image->writeImage($target);
+            $image->clear();
+
+            return $target;
+        } catch (\Throwable $e) {
+            $this->logger->warning('idregister: could not prepare the picture: '.$e->getMessage());
+
+            return null;
+        }
+    }
+
+    /**
+     * Printed names count as confirmed without the machine readable zone when the neural reader
+     * is sure of the lines they came from (the new electronic card has no MRZ on its front).
+     *
+     * @param list<string> $lines
+     * @param list<float> $confs
+     */
+    private static function confidentName(string $name, array $lines, array $confs): bool
+    {
+        $wanted = self::letters($name);
+        if ('' === $wanted) {
+            return false;
+        }
+        foreach ($lines as $i => $line) {
+            if (self::letters($line) === $wanted && ($confs[$i] ?? 0.0) >= self::SURE_CONFIDENCE) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static function letters(string $s): string
+    {
+        return preg_replace('/[^a-z]/', '', mb_strtolower(IdCardParser::stripDiacritics($s))) ?? '';
+    }
 
     public static function binary(): string
     {
@@ -83,14 +259,32 @@ final class Ocr
     public function readDocument(string $imageData): array
     {
         $binary = self::binary();
-        if ('' === $binary) {
-            throw new \RuntimeException('Tesseract is not installed on the server');
+        if ('' === $binary && !$this->rapidAvailable($this->faceMatch->pythonBinary())) {
+            throw new \RuntimeException('No text recognition engine is installed on the server');
         }
 
         try {
             $best = null;
             // A card held by hand is often rotated; stop as soon as one orientation reads well.
             foreach ([0, 90, 270, 180] as $degrees) {
+                $colour = $this->prepareColour($imageData, $degrees);
+                $rapid = null !== $colour ? $this->rapid($colour) : null;
+                if (null !== $rapid) {
+                    $result = DocumentReader::parse($rapid['lines']);
+                    $result['lines'] = \count($rapid['lines']);
+                    if (DocumentReader::TYPE_ID_CARD === $result['type'] && !$result['nameSure'] && $result['cnpSure']
+                        && self::confidentName($result['surname'], $rapid['lines'], $rapid['confs'])
+                        && self::confidentName($result['givenNames'], $rapid['lines'], $rapid['confs'])) {
+                        $result['nameSure'] = true;
+                    }
+                    if (null === $best || $result['confidence'] > $best['confidence']) {
+                        $best = $result;
+                    }
+                    if ($best['confidence'] >= 0.7) {
+                        break;
+                    }
+                    continue;
+                }
                 $prepared = $this->prepare($imageData, $degrees);
                 if (null === $prepared) {
                     continue;
@@ -215,27 +409,42 @@ final class Ocr
      * readable zone at the bottom is read again, enlarged and restricted to its alphabet.
      * Nothing is rotated: the phone holds the card the way the guide shows it.
      *
-     * @return array{lines:list<string>, boxes:list<array{x:float,y:float,w:float,h:float}>, width:int, height:int}
+     * @return array{lines:list<string>, boxes:list<array{x:float,y:float,w:float,h:float}>, confs:list<float>, width:int, height:int}
      */
     public function readFrame(string $imageData): array
     {
         $binary = self::binary();
-        if ('' === $binary) {
-            throw new \RuntimeException('Tesseract is not installed on the server');
+        if ('' === $binary && !$this->rapidAvailable($this->faceMatch->pythonBinary())) {
+            throw new \RuntimeException('No text recognition engine is installed on the server');
         }
 
         try {
-            $prepared = $this->prepare($imageData, 0, self::FRAME_MIN_PX);
-            if (null === $prepared) {
-                throw new \RuntimeException('The frame could not be decoded');
+            $confs = [];
+            $colour = $this->prepareColour($imageData, 0);
+            $rapid = null !== $colour ? $this->rapid($colour) : null;
+            if (null !== $rapid) {
+                $lines = $rapid['lines'];
+                $boxes = $rapid['boxes'];
+                $confs = $rapid['confs'];
+                $width = $rapid['width'];
+                $height = $rapid['height'];
+                $prepared = null;
+            } else {
+                $prepared = $this->prepare($imageData, 0, self::FRAME_MIN_PX);
+                if (null === $prepared) {
+                    throw new \RuntimeException('The frame could not be decoded');
+                }
+                [$width, $height] = self::sizeOf($prepared);
+                $tsv = $this->run($binary, $prepared, ['--psm', '6', '-l', self::LANGS, 'tsv']);
+                [$lines, $boxes] = self::linesFromTsv($tsv, $width, $height);
             }
-            [$width, $height] = self::sizeOf($prepared);
-            $tsv = $this->run($binary, $prepared, ['--psm', '6', '-l', self::LANGS, 'tsv']);
-            [$lines, $boxes] = self::linesFromTsv($tsv, $width, $height);
 
             $parsed = IdCardParser::parse($lines);
-            if (!$parsed['cnpSure'] || '' === $parsed['surname'] || '' === $parsed['givenNames']) {
-                $mrz = $this->cropBottom($prepared, $width, $height, 0.36, 2.0);
+            if ('' !== $binary && (!$parsed['cnpSure'] || '' === $parsed['surname'] || '' === $parsed['givenNames'])) {
+                // the machine readable zone (old card), enlarged and restricted to its alphabet
+                $prepared ??= $this->prepare($imageData, 0, self::FRAME_MIN_PX);
+                [$pw, $ph] = null !== $prepared ? self::sizeOf($prepared) : [0, 0];
+                $mrz = null !== $prepared ? $this->cropBottom($prepared, $pw, $ph, 0.36, 2.0) : null;
                 if (null !== $mrz) {
                     $more = $this->tesseract($binary, $mrz, ['--psm', '6', '-l', 'eng', '-c', 'tessedit_char_whitelist='.self::MRZ_WHITELIST]);
                     foreach ($more as $line) {
@@ -246,7 +455,7 @@ final class Ocr
                 }
             }
 
-            return ['lines' => $lines, 'boxes' => $boxes, 'width' => $width, 'height' => $height];
+            return ['lines' => $lines, 'boxes' => $boxes, 'confs' => $confs, 'width' => $width, 'height' => $height];
         } finally {
             $this->tempManager->clean();
         }

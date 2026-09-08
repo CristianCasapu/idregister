@@ -207,6 +207,12 @@ OC.L10N.register(
     "Almost there — hold still": "Aproape gata — ține nemișcat",
     "Name read ✓ — looking for the personal number, avoid reflections": "Am numele ✓ — caut CNP-ul, evită reflexiile",
     "The personal number was misread — avoid reflections, more light": "CNP citit greșit — evită reflexiile, mai multă lumină",
-    "Nothing has been read yet. Hold the document inside the frame.": "Încă nu s-a citit nimic. Ține actul în chenar."
+    "Nothing has been read yet. Hold the document inside the frame.": "Încă nu s-a citit nimic. Ține actul în chenar.",
+    "Documents are read with RapidOCR (%s).": "Actele se citesc cu RapidOCR (%s).",
+    "No text recognition is installed, so documents cannot be read. Run: occ idregister:install-ocr (RapidOCR, recommended) or sudo apt install tesseract-ocr tesseract-ocr-ron": "Nu e instalată nicio recunoaștere de text, deci actele nu pot fi citite. Rulează: occ idregister:install-ocr (RapidOCR, recomandat) sau sudo apt install tesseract-ocr tesseract-ocr-ron",
+    "Documents are read with Tesseract %s, which reads photographed cards poorly. Install the neural reader with: occ idregister:install-ocr": "Actele se citesc cu Tesseract %s, care citește slab actele fotografiate. Instalează cititorul neural cu: occ idregister:install-ocr",
+    "Documents are read with RapidOCR (neural text recognition), Python: {p}": "Actele se citesc cu RapidOCR (recunoaștere neurală de text), Python: {p}",
+    "Documents are read with Tesseract {v}, which reads photographed cards poorly. Install the neural reader: occ idregister:install-ocr": "Actele se citesc cu Tesseract {v}, care citește slab actele fotografiate. Instalează cititorul neural: occ idregister:install-ocr",
+    "No text recognition is installed: occ idregister:install-ocr (RapidOCR, recommended) or sudo apt install tesseract-ocr tesseract-ocr-ron": "Nu e instalată nicio recunoaștere de text: occ idregister:install-ocr (RapidOCR, recomandat) sau sudo apt install tesseract-ocr tesseract-ocr-ron"
 },
 "nplurals=3; plural=(n==1?0:(((n%100>19)||((n%100==0)&&(n!=0)))?2:1));");

@@ -36,7 +36,7 @@ class AdminController extends Controller
     {
         return new JSONResponse([
             'config' => $this->settings->all(),
-            'ocr' => Ocr::status(),
+            'ocr' => $this->ocr->engineStatus(),
             'faces' => $this->faceMatch->status(),
         ]);
     }

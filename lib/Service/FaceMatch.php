@@ -167,7 +167,7 @@ final class FaceMatch
     }
 
     /** The Python that has InsightFace: the administrator's choice, then Recognize's, then the usual places. */
-    private function pythonBinary(): string
+    public function pythonBinary(): string
     {
         $own = trim((string) $this->settings->get('pythonBinary'));
         if ('' !== $own) {

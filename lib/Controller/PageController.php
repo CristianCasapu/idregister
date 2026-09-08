@@ -34,6 +34,7 @@ class PageController extends Controller
         private Registration $registration,
         private Handoff $handoff,
         private FaceMatch $faceMatch,
+        private Ocr $ocr,
         private IURLGenerator $urlGenerator,
         private \OCP\IUserSession $userSession,
         private IL10N $l,
@@ -72,7 +73,7 @@ class PageController extends Controller
             'acceptIdCard' => (bool) $this->settings->get('acceptIdCard'),
             'acceptDrivingLicence' => (bool) $this->settings->get('acceptDrivingLicence'),
         ]);
-        $this->initialState->provideInitialState('ocr', Ocr::status()['ok']);
+        $this->initialState->provideInitialState('ocr', $this->ocr->engineStatus()['ok']);
         $this->initialState->provideInitialState('loginUrl', $this->urlGenerator->linkToRouteAbsolute('core.login.showLoginForm'));
 
         $response = new TemplateResponse(Application::APP_ID, 'index', [], TemplateResponse::RENDER_AS_GUEST);

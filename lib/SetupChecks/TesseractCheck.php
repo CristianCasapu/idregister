@@ -13,7 +13,7 @@ use OCP\SetupCheck\SetupResult;
 /** Tells the administrator when the card reader cannot work. */
 final class TesseractCheck implements ISetupCheck
 {
-    public function __construct(private IL10N $l, private Settings $settings) {}
+    public function __construct(private IL10N $l, private Settings $settings, private Ocr $ocr) {}
 
     public function getCategory(): string
     {
@@ -27,17 +27,18 @@ final class TesseractCheck implements ISetupCheck
 
     public function run(): SetupResult
     {
-        $status = Ocr::status();
+        $status = $this->ocr->engineStatus();
         if (!$this->settings->get('registrationOpen')) {
             return SetupResult::success($this->l->t('Registration with an identity card is switched off.'));
         }
-        if ('' === $status['version']) {
-            return SetupResult::error($this->l->t('Tesseract is not installed, so identity cards cannot be read. Install it with: sudo apt install tesseract-ocr tesseract-ocr-ron'));
+        if ($status['rapidocr']) {
+            return SetupResult::success($this->l->t('Documents are read with RapidOCR (%s).', [$status['python']]));
         }
-        if (\count($status['missing']) > 0) {
-            return SetupResult::warning($this->l->t('Tesseract %1$s is installed but these language packs are missing: %2$s. Install them with: sudo apt install %2$s', [$status['version'], implode(' ', $status['missing'])]));
+        $tesseract = $status['tesseract'];
+        if (!$tesseract['ok']) {
+            return SetupResult::error($this->l->t('No text recognition is installed, so documents cannot be read. Run: occ idregister:install-ocr (RapidOCR, recommended) or sudo apt install tesseract-ocr tesseract-ocr-ron'));
         }
 
-        return SetupResult::success($this->l->t('Tesseract %1$s with the languages %2$s.', [$status['version'], implode(', ', $status['languages'])]));
+        return SetupResult::warning($this->l->t('Documents are read with Tesseract %s, which reads photographed cards poorly. Install the neural reader with: occ idregister:install-ocr', [$tesseract['version']]));
     }
 }

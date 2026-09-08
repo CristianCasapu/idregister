@@ -22,6 +22,7 @@ final class Admin implements ISettings
         private IGroupManager $groupManager,
         private FaceMatch $faceMatch,
         private IURLGenerator $urlGenerator,
+        private Ocr $ocr,
     ) {}
 
     public function getForm(): TemplateResponse
@@ -31,7 +32,7 @@ final class Admin implements ISettings
             $groups[] = ['id' => $group->getGID(), 'name' => $group->getDisplayName()];
         }
         $this->initialState->provideInitialState('config', $this->settings->all());
-        $this->initialState->provideInitialState('ocr', Ocr::status());
+        $this->initialState->provideInitialState('ocr', $this->ocr->engineStatus());
         $this->initialState->provideInitialState('faces', $this->faceMatch->status());
         $this->initialState->provideInitialState('groups', $groups);
         $this->initialState->provideInitialState('registerUrl', $this->urlGenerator->linkToRouteAbsolute('idregister.page.index'));

@@ -56,11 +56,12 @@
 	}
 
 	function render() {
-		var ocrLine = ocr.version
-			? (ocr.missing.length
-				? t('Tesseract {v} is installed, missing language packs: {m}', { v: ocr.version, m: ocr.missing.join(' ') })
-				: t('Tesseract {v}, languages: {l}', { v: ocr.version, l: ocr.languages.join(', ') }))
-			: t('Tesseract is not installed: sudo apt install tesseract-ocr tesseract-ocr-ron');
+		var tess = ocr.tesseract || ocr;
+		var ocrLine = ocr.rapidocr
+			? t('Documents are read with RapidOCR (neural text recognition), Python: {p}', { p: ocr.python })
+			: (tess.version
+				? t('Documents are read with Tesseract {v}, which reads photographed cards poorly. Install the neural reader: occ idregister:install-ocr', { v: tess.version })
+				: t('No text recognition is installed: occ idregister:install-ocr (RapidOCR, recommended) or sudo apt install tesseract-ocr tesseract-ocr-ron'));
 
 		var rows = registrations.map(function (r) {
 			return '<tr>'
