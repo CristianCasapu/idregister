@@ -19,6 +19,8 @@ use OCP\Security\ISecureRandom;
 final class Handoff
 {
     public const TTL = 1800;
+    /** how long the desktop may pick up the sign-in after the phone finished */
+    public const LOGIN_TTL = 600;
     public const STATE_WAITING = 'waiting';
     public const STATE_OPENED = 'opened';
     public const STATE_DOCUMENT = 'document';
@@ -49,7 +51,7 @@ final class Handoff
         return $this->urlGenerator->linkToRouteAbsolute('idregister.page.index').'?s='.$token;
     }
 
-    /** @return array{state:string, name:string, created:int}|null */
+    /** @return array{state:string, name:string, created:int, login?:array{uid:string, password:string, until:int}}|null */
     public function get(string $token): ?array
     {
         if ('' === $token) {
@@ -78,7 +80,44 @@ final class Handoff
         $this->write($token, $current);
     }
 
-    /** @param array{state:string, name:string, created:int} $value */
+    /**
+     * The phone finished: the desktop that showed the QR code may sign in as the new account,
+     * once, within ten minutes. The credentials live only in the cache record of the hand-off.
+     */
+    public function finish(string $token, string $name, string $uid, string $password): void
+    {
+        $current = $this->get($token);
+        if (null === $current) {
+            return;
+        }
+        $current['state'] = self::STATE_CONFIRMED;
+        $current['name'] = $name;
+        $current['login'] = ['uid' => $uid, 'password' => $password, 'until' => time() + self::LOGIN_TTL];
+        $this->write($token, $current);
+    }
+
+    /**
+     * The credentials for the desktop — handed out once, then forgotten.
+     *
+     * @return array{uid:string, password:string}|null
+     */
+    public function takeLogin(string $token): ?array
+    {
+        $current = $this->get($token);
+        if (null === $current || !\is_array($current['login'] ?? null)) {
+            return null;
+        }
+        $login = $current['login'];
+        unset($current['login']);
+        $this->write($token, $current);
+        if ((int) ($login['until'] ?? 0) < time()) {
+            return null;
+        }
+
+        return ['uid' => (string) $login['uid'], 'password' => (string) $login['password']];
+    }
+
+    /** @param array{state:string, name:string, created:int, login?:array{uid:string, password:string, until:int}} $value */
     private function write(string $token, array $value): void
     {
         $this->cache->set('h_'.$token, $value, self::TTL);

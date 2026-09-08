@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace OCA\IdRegister\Controller;
 
 use OCA\IdRegister\AppInfo\Application;
+use OCA\IdRegister\Db\PendingRegistration;
 use OCA\IdRegister\Service\Device;
 use OCA\IdRegister\Service\DocumentReader;
 use OCA\IdRegister\Service\FaceMatch;
@@ -397,7 +398,12 @@ class ApiController extends Controller
             ]);
             $this->session->remove(self::SESSION_PREFIX.$scanId);
             if ('' !== $handoff) {
-                $this->handoff->advance($handoff, Handoff::STATE_CONFIRMED, $result['name']);
+                if (PendingRegistration::STATUS_ACTIVE === (string) ($result['status'] ?? '')) {
+                    // the desktop that showed the QR code signs in too
+                    $this->handoff->finish($handoff, (string) $result['name'], (string) $result['uid'], (string) $result['password']);
+                } else {
+                    $this->handoff->advance($handoff, Handoff::STATE_CONFIRMED, (string) $result['name']);
+                }
             }
 
             return new JSONResponse(['ok' => true] + $result, Http::STATUS_OK);
@@ -480,12 +486,19 @@ class ApiController extends Controller
     public function handoffStatus(string $token): JSONResponse
     {
         $state = $this->handoff->get($token);
-
-        return new JSONResponse([
+        $answer = [
             'ok' => null !== $state,
             'state' => $state['state'] ?? 'expired',
             'name' => $state['name'] ?? '',
-        ], Http::STATUS_OK);
+        ];
+        if (null !== $state && Handoff::STATE_CONFIRMED === $state['state']) {
+            $login = $this->handoff->takeLogin($token);
+            if (null !== $login) {
+                $answer['login'] = $login;
+            }
+        }
+
+        return new JSONResponse($answer, Http::STATUS_OK);
     }
 
     /** @param array<string, mixed> $card */

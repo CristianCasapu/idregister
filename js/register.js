@@ -177,7 +177,19 @@
 				});
 				if (data.state === 'confirmed') {
 					window.clearInterval(timer);
-					message(t('The account of {name} is ready. You can sign in.', { name: data.name || '' }), 'ok');
+					if (data.login && data.login.uid) {
+						// the phone is done: this computer signs in as the new account and lands on the profile
+						message(t('The account of {name} is ready. Signing you in …', { name: data.name || '' }), 'ok');
+						created = { uid: data.login.uid, password: data.login.password, name: data.name || '' };
+						$('idreg-login-user').value = data.login.uid;
+						$('idreg-login-password').value = data.login.password;
+						window.setTimeout(function () {
+							var form = $('idreg-login-form');
+							if (form.requestSubmit) { form.requestSubmit(); } else { form.dispatchEvent(new Event('submit')); form.submit(); }
+						}, 600);
+					} else {
+						message(t('The account of {name} is ready. You can sign in.', { name: data.name || '' }), 'ok');
+					}
 				}
 				if (data.state === 'expired') { window.clearInterval(timer); }
 			}).catch(function () {});
