@@ -301,7 +301,24 @@
         "The driving licence could not be read. Try again with more light and the whole licence in the frame.": "Permisul de conducere nu a putut fi citit. Încearcă din nou, cu mai multă lumină și cu tot permisul în chenar.",
         "This driving licence has expired (%s). Registration needs a valid document.": "Acest permis de conducere a expirat (%s). Înregistrarea cere un document valabil.",
         "the Romanian driving licence": "permisul de conducere",
-        "the identity card (CI) or the electronic identity card (CEI)": "cartea de identitate (CI) sau cartea electronică de identitate (CEI)"
+        "the identity card (CI) or the electronic identity card (CEI)": "cartea de identitate (CI) sau cartea electronică de identitate (CEI)",
+        "The reader and the face models are installed in the app's own environment: {p}": "Cititorul și modelele de fețe sunt instalate în mediul propriu al aplicației: {p}",
+        "Documents are read with Tesseract {v}, which reads photographed cards poorly. Install the neural reader below.": "Documentele sunt citite cu Tesseract {v}, care citește slab cărțile fotografiate. Instalează cititorul neural mai jos.",
+        "No text recognition is installed, so documents cannot be read. Install the reader below.": "Nu este instalată nicio recunoaștere a textului, așa că documentele nu pot fi citite. Instalează cititorul mai jos.",
+        "Face matching ready ({p})": "Compararea fețelor este gata ({p})",
+        "Face matching is not available: the face models are missing. Install the reader below and they come with it.": "Compararea fețelor nu este disponibilă: lipsesc modelele de fețe. Instalează cititorul mai jos și vin odată cu el.",
+        "Waiting for the background job to start (usually within five minutes) …": "Aștept pornirea sarcinii de fundal (de obicei în cel mult cinci minute) …",
+        "Installing: {step} …": "Se instalează: {step} …",
+        "The installation failed: {error}": "Instalarea a eșuat: {error}",
+        "Installed.": "Instalat.",
+        "Reader and face models": "Cititorul și modelele de fețe",
+        "The card is read and the faces are compared by a small Python program (RapidOCR and InsightFace's models on ONNX Runtime) that the app installs by itself into the data directory — about 450 MB, once. Nothing else on the server is touched.": "Cartea este citită și fețele sunt comparate de un mic program Python (RapidOCR și modelele InsightFace pe ONNX Runtime) pe care aplicația și-l instalează singură în directorul de date — cam 450 MB, o singură dată. Nimic altceva de pe server nu este atins.",
+        "Try again": "Încearcă din nou",
+        "Install the reader": "Instalează cititorul",
+        "Remove and install again": "Șterge și instalează din nou",
+        "Remove the reader and install it again?": "Ștergi cititorul și îl instalezi din nou?",
+        "No text recognition is installed, so documents cannot be read. Open Administration settings › Sign up with ID and press \"Install the reader\" (or run occ idregister:install-ocr).": "Nu este instalată nicio recunoaștere a textului, așa că documentele nu pot fi citite. Deschide Setări de administrare › Înregistrare cu CI și apasă „Instalează cititorul” (sau rulează occ idregister:install-ocr).",
+        "Documents are read with Tesseract %s, which reads photographed cards poorly. Open Administration settings › Sign up with ID and press \"Install the reader\" (or run occ idregister:install-ocr).": "Documentele sunt citite cu Tesseract %s, care citește slab cărțile fotografiate. Deschide Setări de administrare › Înregistrare cu CI și apasă „Instalează cititorul” (sau rulează occ idregister:install-ocr)."
     },
     "pluralForm": "nplurals=3; plural=(n==1?0:(((n%100>19)||((n%100==0)&&(n!=0)))?2:1));"
 }

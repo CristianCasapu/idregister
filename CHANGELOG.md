@@ -4,6 +4,25 @@ All notable changes to this project are documented in this file. The format foll
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses
 [semantic versioning](https://semver.org/).
 
+## [1.13.0] – 2026-09-10
+
+### Added
+- The app installs its own reader and face models from the administration page: one button
+  builds a Python environment in the data directory with RapidOCR, ONNX Runtime and OpenCV
+  (pre-built wheels only, no compiler) and downloads InsightFace's `buffalo_l` model pack —
+  about 450 MB, once. `occ idregister:install-ocr` does the same from a terminal.
+
+### Changed
+- Face descriptors and the head pose are computed straight on ONNX Runtime (`src/face_embed.py`
+  runs the SCRFD, ArcFace and 3D-landmark models itself) instead of through the `insightface`
+  package, which needs a C compiler to install. The numbers are identical, so the measured
+  thresholds still hold.
+- The hand-off from a computer to a phone (QR code) lives in a database table instead of the
+  distributed cache: on a server without Redis or Memcached that cache is a per-request array
+  and every step of the hand-off was lost at once.
+- Setup checks and the administration page point at the "Install the reader" button rather
+  than at terminal commands.
+
 ## [1.12.2] – 2026-09-09
 
 ### Fixed

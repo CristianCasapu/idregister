@@ -57,7 +57,7 @@ final class Ocr
             'python' => $python,
             'rapidocr' => $rapid,
             'tesseract' => $tesseract,
-            'hint' => $rapid ? '' : 'occ idregister:install-ocr',
+            'hint' => $rapid ? '' : 'Administration settings › Sign up with ID › Install the reader',
         ];
     }
 

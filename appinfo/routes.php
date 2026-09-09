@@ -29,6 +29,9 @@ return [
         // administration
         ['name' => 'admin#config', 'url' => '/api/admin/config', 'verb' => 'GET'],
         ['name' => 'admin#setConfig', 'url' => '/api/admin/config', 'verb' => 'PUT'],
+        ['name' => 'admin#reader', 'url' => '/api/admin/reader', 'verb' => 'GET'],
+        ['name' => 'admin#installReader', 'url' => '/api/admin/reader', 'verb' => 'POST'],
+        ['name' => 'admin#removeReader', 'url' => '/api/admin/reader', 'verb' => 'DELETE'],
         ['name' => 'admin#list', 'url' => '/api/admin/registrations', 'verb' => 'GET'],
         ['name' => 'admin#approve', 'url' => '/api/admin/registrations/{id}/approve', 'verb' => 'POST'],
         ['name' => 'admin#delete', 'url' => '/api/admin/registrations/{id}', 'verb' => 'DELETE'],

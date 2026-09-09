@@ -17,6 +17,17 @@ Interface in **Romanian and English** only. Licence AGPL-3.0-or-later.
 
 ---
 
+## Installing the reader and the face models
+
+Administration settings › **Sign up with ID** › **Install the reader**. A background job builds a
+virtual environment in the data directory (`appdata_<id>/idregister/python`) with RapidOCR,
+ONNX Runtime, OpenCV and numpy — pre-built packages only, no compiler — and downloads
+InsightFace's `buffalo_l` model pack (face detection, recognition and 3D landmarks) next to it.
+About 450 MB, once; nothing outside the data directory is touched. The only thing the server
+needs is Python 3.8 or newer (`python3`); a setup check in Administration › Overview says so
+when it is missing. `occ idregister:install-ocr` does the same from a terminal; `--remove`
+starts over. Tesseract, if installed, stays as a fallback reader.
+
 ## How it works
 
 ```

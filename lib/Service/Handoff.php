@@ -4,9 +4,8 @@ declare(strict_types=1);
 
 namespace OCA\IdRegister\Service;
 
-use OCA\IdRegister\AppInfo\Application;
-use OCP\ICache;
-use OCP\ICacheFactory;
+use OCP\DB\QueryBuilder\IQueryBuilder;
+use OCP\IDBConnection;
 use OCP\IURLGenerator;
 use OCP\Security\ISecureRandom;
 
@@ -14,7 +13,9 @@ use OCP\Security\ISecureRandom;
  * Passing the registration from a desktop to a phone.
  *
  * The desktop asks for a handoff, shows its link as a QR code and then follows what the phone
- * is doing. Everything lives in the shared cache for half an hour; nothing touches the database.
+ * is doing. Everything lives in a small database table for half an hour (a cache would need
+ * Redis or Memcached to be shared between requests, and not every server has one) and is
+ * purged by the cleanup job.
  */
 final class Handoff
 {
@@ -27,15 +28,13 @@ final class Handoff
     public const STATE_REGISTERED = 'registered';
     public const STATE_CONFIRMED = 'confirmed';
 
-    private ICache $cache;
+    private const TABLE = 'idregister_handoff';
 
     public function __construct(
-        ICacheFactory $cacheFactory,
+        private IDBConnection $db,
         private IURLGenerator $urlGenerator,
         private ISecureRandom $random,
-    ) {
-        $this->cache = $cacheFactory->createDistributed(Application::APP_ID.'_handoff');
-    }
+    ) {}
 
     /** @return array{token:string, url:string, secret:string} */
     public function create(): array
@@ -44,7 +43,7 @@ final class Handoff
         // the app) and is needed to pick up the sign-in at the end, so a photographed QR code alone gives nothing
         $token = $this->random->generate(20, ISecureRandom::CHAR_ALPHANUMERIC);
         $secret = $this->random->generate(24, ISecureRandom::CHAR_ALPHANUMERIC);
-        $this->write($token, ['state' => self::STATE_WAITING, 'name' => '', 'created' => time(), 'secret' => hash('sha256', $secret)]);
+        $this->write($token, ['state' => self::STATE_WAITING, 'name' => '', 'created' => time(), 'secret' => hash('sha256', $secret)], true);
 
         return ['token' => $token, 'url' => $this->url($token), 'secret' => $secret];
     }
@@ -57,10 +56,21 @@ final class Handoff
     /** @return array{state:string, name:string, created:int, secret?:string, login?:array{uid:string, password:string, until:int}}|null */
     public function get(string $token): ?array
     {
-        if ('' === $token) {
+        if ('' === $token || \strlen($token) > 64) {
             return null;
         }
-        $value = $this->cache->get('h_'.$token);
+        $qb = $this->db->getQueryBuilder();
+        $qb->select('data')
+            ->from(self::TABLE)
+            ->where($qb->expr()->eq('token', $qb->createNamedParameter($token)))
+            ->andWhere($qb->expr()->gt('expires', $qb->createNamedParameter(time(), IQueryBuilder::PARAM_INT)));
+        $result = $qb->executeQuery();
+        $row = $result->fetch();
+        $result->closeCursor();
+        if (false === $row) {
+            return null;
+        }
+        $value = json_decode((string) $row['data'], true);
 
         return \is_array($value) ? $value : null;
     }
@@ -85,7 +95,7 @@ final class Handoff
 
     /**
      * The phone finished: the desktop that showed the QR code may sign in as the new account,
-     * once, within ten minutes. The credentials live only in the cache record of the hand-off.
+     * once, within ten minutes. The credentials live only in the record of the hand-off.
      */
     public function finish(string $token, string $name, string $uid, string $password): void
     {
@@ -123,9 +133,33 @@ final class Handoff
         return ['uid' => (string) $login['uid'], 'password' => (string) $login['password']];
     }
 
-    /** @param array{state:string, name:string, created:int, secret?:string, login?:array{uid:string, password:string, until:int}} $value */
-    private function write(string $token, array $value): void
+    /** Rows past their half hour; called by the cleanup job. */
+    public function purge(): int
     {
-        $this->cache->set('h_'.$token, $value, self::TTL);
+        $qb = $this->db->getQueryBuilder();
+        $qb->delete(self::TABLE)->where($qb->expr()->lt('expires', $qb->createNamedParameter(time(), IQueryBuilder::PARAM_INT)));
+
+        return $qb->executeStatement();
+    }
+
+    /** @param array{state:string, name:string, created:int, secret?:string, login?:array{uid:string, password:string, until:int}} $value */
+    private function write(string $token, array $value, bool $new = false): void
+    {
+        $data = (string) json_encode($value);
+        $expires = (int) ($value['created'] ?? time()) + self::TTL;
+        $qb = $this->db->getQueryBuilder();
+        if ($new) {
+            $qb->insert(self::TABLE)->values([
+                'token' => $qb->createNamedParameter($token),
+                'data' => $qb->createNamedParameter($data),
+                'created' => $qb->createNamedParameter(time(), IQueryBuilder::PARAM_INT),
+                'expires' => $qb->createNamedParameter($expires, IQueryBuilder::PARAM_INT),
+            ]);
+        } else {
+            $qb->update(self::TABLE)
+                ->set('data', $qb->createNamedParameter($data))
+                ->where($qb->expr()->eq('token', $qb->createNamedParameter($token)));
+        }
+        $qb->executeStatement();
     }
 }

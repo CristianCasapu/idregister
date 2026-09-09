@@ -7,6 +7,7 @@ namespace OCA\IdRegister\Settings;
 use OCA\IdRegister\AppInfo\Application;
 use OCA\IdRegister\Service\FaceMatch;
 use OCA\IdRegister\Service\Ocr;
+use OCA\IdRegister\Service\PythonEnv;
 use OCA\IdRegister\Service\Settings;
 use OCP\AppFramework\Http\TemplateResponse;
 use OCP\AppFramework\Services\IInitialState;
@@ -23,6 +24,7 @@ final class Admin implements ISettings
         private FaceMatch $faceMatch,
         private IURLGenerator $urlGenerator,
         private Ocr $ocr,
+        private PythonEnv $env,
     ) {}
 
     public function getForm(): TemplateResponse
@@ -34,6 +36,7 @@ final class Admin implements ISettings
         $this->initialState->provideInitialState('config', $this->settings->all());
         $this->initialState->provideInitialState('ocr', $this->ocr->engineStatus());
         $this->initialState->provideInitialState('faces', $this->faceMatch->status());
+        $this->initialState->provideInitialState('reader', $this->env->status());
         $this->initialState->provideInitialState('groups', $groups);
         $this->initialState->provideInitialState('registerUrl', $this->urlGenerator->linkToRouteAbsolute('idregister.page.index'));
 

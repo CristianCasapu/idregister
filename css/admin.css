@@ -56,3 +56,8 @@
 #idregister-personal .ok { color: var(--color-success-text, #2d7a3e); }
 #idregister-personal .error { color: var(--color-error); }
 #idregister-personal code { background: var(--color-background-dark); padding: 2px 6px; border-radius: 4px; }
+
+#idregister-admin .idreg-ok { color: var(--color-success); }
+#idregister-admin .idreg-warn { color: var(--color-warning); }
+#idregister-admin .idreg-error { color: var(--color-error); }
+#idregister-admin .idreg-log { max-width: 900px; max-height: 240px; overflow: auto; font-size: 12px; background: var(--color-background-dark); padding: 8px; border-radius: var(--border-radius); white-space: pre-wrap; }

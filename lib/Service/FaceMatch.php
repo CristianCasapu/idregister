@@ -13,8 +13,8 @@ use Symfony\Component\Process\Process;
 /**
  * Compares the face on the document with the selfie.
  *
- * Both pictures are read in memory, turned into a 512-value descriptor by InsightFace and then
- * dropped; only the descriptor of the document photo lives on (in the visitor's session) so the
+ * Both pictures are read in memory, turned into a 512-value descriptor (InsightFace's buffalo_l
+ * models on ONNX Runtime, see src/face_embed.py) and then dropped; only the descriptor of the document photo lives on (in the visitor's session) so the
  * selfie can be compared against it.
  *
  * The thresholds come from measurements on a real library of 24,747 faces: two pictures of the
@@ -39,6 +39,7 @@ final class FaceMatch
         private IAppConfig $appConfig,
         private ITempManager $tempManager,
         private LoggerInterface $logger,
+        private PythonEnv $env,
     ) {}
 
     /**
@@ -48,7 +49,7 @@ final class FaceMatch
     public function available(): bool
     {
         $binary = $this->pythonBinary();
-        if ('' === $binary || !is_executable($binary) || !is_dir($this->insightfaceRoot().'/models')) {
+        if ('' === $binary || !is_executable($binary) || !$this->hasModels()) {
             return false;
         }
         $cached = json_decode($this->appConfig->getValueString(Application::APP_ID, 'faceCheck', ''), true);
@@ -56,26 +57,41 @@ final class FaceMatch
             return (bool) $cached['ok'];
         }
 
-        $process = new Process([$binary, '-c', 'import insightface, onnxruntime, cv2'], null, ['HOME' => getenv('HOME') ?: '/tmp']);
+        $process = new Process([$binary, '-c', 'import onnxruntime, cv2, numpy'], null, ['HOME' => getenv('HOME') ?: '/tmp']);
         $process->setTimeout(60);
         $process->run();
         $ok = $process->isSuccessful();
         $this->appConfig->setValueString(Application::APP_ID, 'faceCheck', json_encode(['binary' => $binary, 'ok' => $ok, 'time' => time()]));
         if (!$ok) {
-            $this->logger->warning('idregister: '.$binary.' cannot import insightface: '.trim($process->getErrorOutput()));
+            $this->logger->warning('idregister: '.$binary.' cannot import onnxruntime/cv2/numpy: '.trim($process->getErrorOutput()));
         }
 
         return $ok;
     }
 
-    /** @return array{python:string, root:string, available:bool} */
+    /** @return array{python:string, root:string, available:bool, models:bool} */
     public function status(): array
     {
         return [
             'python' => $this->pythonBinary(),
             'root' => $this->insightfaceRoot(),
             'available' => $this->available(),
+            'models' => $this->hasModels(),
         ];
+    }
+
+    /** Forget the cached check (after an installation) */
+    public function forgetCheck(): void
+    {
+        $this->appConfig->deleteKey(Application::APP_ID, 'faceCheck');
+    }
+
+    /** The three model files the descriptor and the head pose need */
+    public function hasModels(): bool
+    {
+        $pack = $this->insightfaceRoot().'/models/'.PythonEnv::MODEL_PACK;
+
+        return is_file($pack.'/det_10g.onnx') && is_file($pack.'/w600k_r50.onnx') && is_file($pack.'/1k3d68.onnx');
     }
 
     /**
@@ -175,9 +191,12 @@ final class FaceMatch
         return sqrt($sum);
     }
 
-    /** The Python that has InsightFace: the administrator's choice, then Recognize's, then the usual places. */
+    /** The Python with the reader: the app's own environment, else the administrator's choice, then Recognize's, then the usual places. */
     public function pythonBinary(): string
     {
+        if ($this->env->isInstalled()) {
+            return $this->env->python();
+        }
         $own = trim((string) $this->settings->get('pythonBinary'));
         if ('' !== $own) {
             return $own;
@@ -204,8 +223,12 @@ final class FaceMatch
         return '';
     }
 
+    /** The directory that holds models/<pack>/: the app's own, else the administrator's, else Recognize's, else ~/.insightface */
     private function insightfaceRoot(): string
     {
+        if ($this->env->hasModels()) {
+            return $this->env->dir();
+        }
         $own = trim((string) $this->settings->get('insightfaceRoot'));
         if ('' !== $own) {
             return $own;

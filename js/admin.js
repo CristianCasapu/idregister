@@ -28,6 +28,8 @@
 	var config = initial('config', {});
 	var ocr = initial('ocr', { ok: false, version: '', languages: [], missing: [] });
 	var faces = initial('faces', { available: false, python: '', root: '' });
+	var reader = initial('reader', { installed: false, canInstall: false, reason: '', install: { state: 'idle' } });
+	var readerTimer = null;
 	var groups = initial('groups', []);
 	var registerUrl = initial('registerUrl', '');
 	var registrations = [];
@@ -55,13 +57,58 @@
 		return t('e-mail not confirmed');
 	}
 
-	function render() {
+	function renderReader() {
+		var box = document.getElementById('idreg-reader');
+		if (!box) { return; }
+		var ins = reader.install || { state: 'idle' };
+		var busy = ins.state === 'queued' || ins.state === 'running';
 		var tess = ocr.tesseract || ocr;
-		var ocrLine = ocr.rapidocr
-			? t('Documents are read with RapidOCR (neural text recognition), Python: {p}', { p: ocr.python })
-			: (tess.version
-				? t('Documents are read with Tesseract {v}, which reads photographed cards poorly. Install the neural reader: occ idregister:install-ocr', { v: tess.version })
-				: t('No text recognition is installed: occ idregister:install-ocr (RapidOCR, recommended) or sudo apt install tesseract-ocr tesseract-ocr-ron'));
+		var lines = [];
+		if (reader.installed) {
+			lines.push(['ok', t('The reader and the face models are installed in the app\'s own environment: {p}', { p: reader.python })]);
+		} else if (ocr.rapidocr) {
+			lines.push(['ok', t('Documents are read with RapidOCR (neural text recognition), Python: {p}', { p: ocr.python })]);
+		} else if (tess.version) {
+			lines.push(['warn', t('Documents are read with Tesseract {v}, which reads photographed cards poorly. Install the neural reader below.', { v: tess.version })]);
+		} else {
+			lines.push(['error', t('No text recognition is installed, so documents cannot be read. Install the reader below.')]);
+		}
+		lines.push([faces.available ? 'ok' : 'warn', faces.available ? t('Face matching ready ({p})', { p: faces.root }) : t('Face matching is not available: the face models are missing. Install the reader below and they come with it.')]);
+		if (!reader.installed && !reader.canInstall) { lines.push(['error', reader.reason]); }
+		var note = '';
+		if (ins.state === 'queued') { note = t('Waiting for the background job to start (usually within five minutes) …'); }
+		else if (ins.state === 'running') { note = t('Installing: {step} …', { step: ins.step }); }
+		else if (ins.state === 'failed') { note = t('The installation failed: {error}', { error: ins.error }); }
+		else if (ins.state === 'done' && reader.installed) { note = t('Installed.'); }
+		box.innerHTML = ''
+			+ '<h3>' + esc(t('Reader and face models')) + '</h3>'
+			+ '<p class="muted">' + esc(t('The card is read and the faces are compared by a small Python program (RapidOCR and InsightFace\'s models on ONNX Runtime) that the app installs by itself into the data directory — about 450 MB, once. Nothing else on the server is touched.')) + '</p>'
+			+ lines.map(function (l) { return '<p class="idreg-' + l[0] + '">' + esc(l[1]) + '</p>'; }).join('')
+			+ (note ? '<p class="' + (ins.state === 'failed' ? 'idreg-error' : 'muted') + '">' + esc(note) + '</p>' : '')
+			+ ((busy || ins.state === 'failed') && ins.log ? '<pre class="idreg-log">' + esc(ins.log) + '</pre>' : '')
+			+ '<div class="idreg-admin-row">'
+			+ (!reader.installed && reader.canInstall && !busy ? '<button id="reader-install">' + esc(ins.state === 'failed' ? t('Try again') : t('Install the reader')) + '</button> ' : '')
+			+ (reader.installed && !busy ? '<button id="reader-remove">' + esc(t('Remove and install again')) + '</button>' : '')
+			+ '</div>';
+		var b = document.getElementById('reader-install');
+		if (b) { b.addEventListener('click', function () { b.disabled = true; call('POST', '/api/admin/reader').then(function (d) { if (d.error) { alert(d.error); } applyReader(d); }); }); }
+		var r = document.getElementById('reader-remove');
+		if (r) { r.addEventListener('click', function () { if (window.confirm(t('Remove the reader and install it again?'))) { call('DELETE', '/api/admin/reader').then(applyReader); } }); }
+		if (busy && !readerTimer) {
+			readerTimer = setInterval(function () { call('GET', '/api/admin/reader').then(applyReader); }, 4000);
+		} else if (!busy && readerTimer) {
+			clearInterval(readerTimer); readerTimer = null;
+			var selfie = document.getElementById('cfg-selfie');
+			if (selfie) { selfie.disabled = !faces.available; }
+		}
+	}
+	function applyReader(d) {
+		if (!d || !d.reader) { return; }
+		reader = d.reader; ocr = d.ocr || ocr; faces = d.faces || faces;
+		renderReader();
+	}
+
+	function render() {
 
 		var rows = registrations.map(function (r) {
 			return '<tr>'
@@ -78,7 +125,7 @@
 		root.innerHTML = ''
 			+ '<h2>' + esc(t('Sign up with ID')) + '</h2>'
 			+ '<p class="muted">' + esc(t('Visitors register themselves with a photo of their identity card and a verified e-mail address. The picture and the personal number are never stored.')) + '</p>'
-			+ '<p class="muted">' + esc(ocrLine) + '</p>'
+			+ '<div id="idreg-reader"></div>'
 			+ '<div class="idreg-admin-row"><label><input type="checkbox" id="cfg-open"' + (config.registrationOpen ? ' checked' : '') + '> ' + esc(t('Allow registration with an identity card')) + '</label></div>'
 			+ '<div class="idreg-admin-row"><label><input type="checkbox" id="cfg-approval"' + (config.requireApproval ? ' checked' : '') + '> ' + esc(t('An administrator has to approve every new account')) + '</label></div>'
 			+ '<div class="idreg-admin-row"><label><input type="checkbox" id="cfg-onecard"' + (config.oneAccountPerCard ? ' checked' : '') + '> ' + esc(t('One account per identity card')) + '</label></div>'
@@ -88,7 +135,6 @@
 			+ '<div class="idreg-admin-row"><label><input type="checkbox" id="cfg-idcard"' + (config.acceptIdCard ? ' checked' : '') + '> ' + esc(t('Identity card')) + '</label>'
 			+ '<label><input type="checkbox" id="cfg-licence"' + (config.acceptDrivingLicence ? ' checked' : '') + '> ' + esc(t('Driving licence')) + '</label></div>'
 			+ '<h3>' + esc(t('Selfie')) + '</h3>'
-			+ '<p class="muted">' + esc(faces.available ? t('Face matching ready') : t('Face matching is not available: install InsightFace (the Recognize app sets it up).')) + '</p>'
 			+ '<div class="idreg-admin-row"><label>' + esc(t('Android app (suggested when the scan in the browser struggles; empty = never)')) + ' <input type="url" id="cfg-appurl" size="48" value="' + esc(config.androidAppUrl || '') + '"></label></div>'
 			+ '<div class="idreg-admin-row"><label><input type="checkbox" id="cfg-valid"' + (config.requireValidDocument ? ' checked' : '') + '> ' + esc(t('Require a valid document: an expired card is refused; when the expiry date cannot be read, an administrator reviews the registration')) + '</label></div>'
 			+ '<div class="idreg-admin-row"><label><input type="checkbox" id="cfg-liveness"' + (config.requireSelfieLiveness ? ' checked' : '') + '> ' + esc(t('Ask for a small head turn during the selfie (a photo held in front of the camera cannot do it); without it, an administrator reviews the registration')) + '</label></div>'
@@ -123,6 +169,7 @@
 				? '<table><thead><tr><th>' + esc(t('Person')) + '</th><th>' + esc(t('Contact')) + '</th><th>' + esc(t('Status')) + '</th><th>' + esc(t('Started')) + '</th><th></th></tr></thead><tbody>' + rows + '</tbody></table>'
 				: '<p class="muted">' + esc(t('Nobody has registered yet.')) + '</p>');
 
+		renderReader();
 		document.getElementById('cfg-open').addEventListener('change', function (e) { save({ registrationOpen: e.target.checked }); });
 		document.getElementById('cfg-approval').addEventListener('change', function (e) { save({ requireApproval: e.target.checked }); });
 		document.getElementById('cfg-onecard').addEventListener('change', function (e) { save({ oneAccountPerCard: e.target.checked }); });

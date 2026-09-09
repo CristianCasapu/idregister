@@ -5,15 +5,18 @@ declare(strict_types=1);
 namespace OCA\IdRegister\Controller;
 
 use OCA\IdRegister\AppInfo\Application;
+use OCA\IdRegister\BackgroundJobs\InstallJob;
 use OCA\IdRegister\Db\PendingRegistrationMapper;
 use OCA\IdRegister\Service\FaceMatch;
 use OCA\IdRegister\Service\Ocr;
+use OCA\IdRegister\Service\PythonEnv;
 use OCA\IdRegister\Service\Registration;
 use OCA\IdRegister\Service\Settings;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http;
 use OCP\AppFramework\Http\Attribute\OpenAPI;
 use OCP\AppFramework\Http\JSONResponse;
+use OCP\BackgroundJob\IJobList;
 use OCP\IRequest;
 use OCP\IUserManager;
 
@@ -28,8 +31,47 @@ class AdminController extends Controller
         private IUserManager $userManager,
         private Ocr $ocr,
         private FaceMatch $faceMatch,
+        private PythonEnv $env,
+        private IJobList $jobs,
     ) {
         parent::__construct(Application::APP_ID, $request);
+    }
+
+    /** The reader and the face models: installed? installing? — polled by the administration page. */
+    public function reader(): JSONResponse
+    {
+        return new JSONResponse($this->readerPayload());
+    }
+
+    /** Queue the installation; the background job does the long work. */
+    public function installReader(): JSONResponse
+    {
+        $status = $this->env->status();
+        if (!$status['canInstall']) {
+            return new JSONResponse(['error' => $status['reason']] + $this->readerPayload(), Http::STATUS_BAD_REQUEST);
+        }
+        if (!\in_array($status['install']['state'], [PythonEnv::STATE_QUEUED, PythonEnv::STATE_RUNNING], true)) {
+            $this->env->markQueued();
+            $this->jobs->add(InstallJob::class);
+        }
+
+        return new JSONResponse($this->readerPayload());
+    }
+
+    /** Throw the environment away (a fresh installation afterwards). */
+    public function removeReader(): JSONResponse
+    {
+        $this->env->remove();
+        $this->ocr->forgetEngineCheck();
+        $this->faceMatch->forgetCheck();
+
+        return new JSONResponse($this->readerPayload());
+    }
+
+    /** @return array<string, mixed> */
+    private function readerPayload(): array
+    {
+        return ['reader' => $this->env->status(), 'ocr' => $this->ocr->engineStatus(), 'faces' => $this->faceMatch->status()];
     }
 
     public function config(): JSONResponse
