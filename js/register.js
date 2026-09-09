@@ -1083,7 +1083,7 @@
 	}
 	// which documents this server takes, said plainly on the first page
 	var accepted = [];
-	if (conditions.acceptIdCard) { accepted.push(t('the Romanian identity card (old or electronic)')); }
+	if (conditions.acceptIdCard) { accepted.push(t('the identity card (CI) or the electronic identity card (CEI)')); }
 	if (conditions.acceptDrivingLicence) { accepted.push(t('the Romanian driving licence')); }
 	['idreg-accepted-0', 'idreg-accepted-1'].forEach(function (id) {
 		$(id).textContent = accepted.length ? t('Accepted documents: {list}.', { list: accepted.join(', ') }) : '';
