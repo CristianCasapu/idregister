@@ -109,6 +109,13 @@ final class Devices
             return ['state' => 'gone'];
         }
         if ('' !== $row['device_id']) {
+            // the page knows now; the code, which names the account, need not stay
+            $query = $this->db->getQueryBuilder();
+            $query->delete('idregister_pairing')
+                ->where($query->expr()->eq('token', $query->createNamedParameter($token)))
+                ->executeStatement()
+            ;
+
             return ['state' => 'done'];
         }
 
@@ -422,16 +429,23 @@ final class Devices
         if (!hash_equals((string) $row['secret_hash'], hash('sha256', $secret))) {
             return ['state' => 'expired', 'user' => null, 'redirect' => ''];
         }
+        if (self::STATE_DENIED === $row['state']) {
+            // the browser has been told; the row has nothing left to say
+            $this->drop($requestId);
+
+            return ['state' => self::STATE_DENIED, 'user' => null, 'redirect' => ''];
+        }
         if (self::STATE_APPROVED !== $row['state']) {
             return ['state' => (string) $row['state'], 'user' => null, 'redirect' => ''];
         }
-        $update = $this->db->getQueryBuilder();
-        $update->update('idregister_authreq')
-            ->set('state', $update->createNamedParameter(self::STATE_TAKEN))
-            ->where($update->expr()->eq('request_id', $update->createNamedParameter($requestId)))
-            ->andWhere($update->expr()->eq('state', $update->createNamedParameter(self::STATE_APPROVED)))
+        // deleting rather than marking: the row carries the account, the address it was asked from
+        // and the browser, and once the session is handed over nothing needs any of it
+        $delete = $this->db->getQueryBuilder();
+        $delete->delete('idregister_authreq')
+            ->where($delete->expr()->eq('request_id', $delete->createNamedParameter($requestId)))
+            ->andWhere($delete->expr()->eq('state', $delete->createNamedParameter(self::STATE_APPROVED)))
         ;
-        if (1 !== $update->executeStatement()) {
+        if (1 !== $delete->executeStatement()) {
             return ['state' => self::STATE_TAKEN, 'user' => null, 'redirect' => ''];
         }
 
@@ -504,16 +518,28 @@ final class Devices
         }
     }
 
-    /** Rows nobody will come back for. Called by the cleanup job and before every new request. */
+    /**
+     * Rows nobody will come back for, dropped the moment they are past their end: while they live
+     * they hold the address and the browser a sign-in was asked from.
+     */
     public function forgetExpired(): void
     {
         foreach (['idregister_pairing', 'idregister_authreq'] as $table) {
             $query = $this->db->getQueryBuilder();
             $query->delete($table)
-                ->where($query->expr()->lt('expires', $query->createNamedParameter(time() - 3600, \OCP\DB\QueryBuilder\IQueryBuilder::PARAM_INT)))
+                ->where($query->expr()->lt('expires', $query->createNamedParameter(time(), \OCP\DB\QueryBuilder\IQueryBuilder::PARAM_INT)))
                 ->executeStatement()
             ;
         }
+    }
+
+    private function drop(string $requestId): void
+    {
+        $query = $this->db->getQueryBuilder();
+        $query->delete('idregister_authreq')
+            ->where($query->expr()->eq('request_id', $query->createNamedParameter($requestId)))
+            ->executeStatement()
+        ;
     }
 
     // --------------------------------------------------------------- private

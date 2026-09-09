@@ -4,6 +4,14 @@ All notable changes to this project are documented in this file. The format foll
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses
 [semantic versioning](https://semver.org/).
 
+## [1.18.0] – 2026-09-10
+
+### Changed
+- A sign-in request is deleted the moment the session is handed over, and a pairing code the moment
+  the settings page has seen it, instead of being marked used and kept for an hour: while they live
+  they name the account and hold the address and the browser the sign-in was asked from, and once
+  they have done their work nothing needs any of it. Anything past its end goes at once as well.
+
 ## [1.17.0] – 2026-09-10
 
 ### Added
