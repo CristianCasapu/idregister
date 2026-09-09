@@ -219,12 +219,16 @@ class ApiController extends Controller
         // the card has to be valid: an expired one is refused; one whose expiry could not be read
         // goes through, but an administrator looks at it
         $expiryUnknown = false;
-        if ($enough && DocumentReader::TYPE_ID_CARD === $card['type'] && (bool) $this->settings->get('requireValidDocument')) {
+        if ($enough && (bool) $this->settings->get('requireValidDocument')) {
             $expiry = (string) ($card['expiry'] ?? '');
             $sure = (bool) ($card['expirySure'] ?? false);
             if ('' !== $expiry && $expiry < (new \DateTimeImmutable('today'))->format('Y-m-d')) {
                 if ($sure) {
-                    return ['ok' => false, 'message' => $this->l->t('This identity card has expired (%s). Registration needs a valid one.', [substr($expiry, 8, 2).'.'.substr($expiry, 5, 2).'.'.substr($expiry, 0, 4)])];
+                    $shown = substr($expiry, 8, 2).'.'.substr($expiry, 5, 2).'.'.substr($expiry, 0, 4);
+
+                    return ['ok' => false, 'message' => DocumentReader::TYPE_DRIVING_LICENCE === $card['type']
+                        ? $this->l->t('This driving licence has expired (%s). Registration needs a valid document.', [$shown])
+                        : $this->l->t('This identity card has expired (%s). Registration needs a valid one.', [$shown])];
                 }
                 // a date in the past that is not clearly the expiry (the birth date, say): as good as unread
                 $expiry = '';
@@ -286,7 +290,9 @@ class ApiController extends Controller
             'confidence' => $card['confidence'],
             'needsSelfie' => $needsSelfie,
             'can' => (string) ($card['can'] ?? ''),
-            'message' => $enough ? '' : ($message ?? $this->l->t('The identity card could not be read. Try again with more light and the whole card in the frame.')),
+            'message' => $enough ? '' : ($message ?? (DocumentReader::TYPE_DRIVING_LICENCE === $card['type']
+                ? $this->l->t('The driving licence could not be read. Try again with more light and the whole licence in the frame.')
+                : $this->l->t('The identity card could not be read. Try again with more light and the whole card in the frame.'))),
         ];
     }
 

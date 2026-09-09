@@ -147,8 +147,8 @@ final class Registration
         if ($maxAccounts > 0 && \count($this->mapper->findAll()) >= $maxAccounts) {
             throw new \InvalidArgumentException($this->l->t('Registration is closed: the number of accounts that can be created this way has been reached.'));
         }
-        // One document, one account. With a personal number the hash is exact; a driving licence
-        // has none, so the name and the date of birth stand in for it.
+        // One document, one account. With a personal number the hash is exact (the licence has
+        // one too, field 4d); when it could not be read, the name and the date of birth stand in.
         $cnpHash = '';
         if ('' !== $card['cnp']) {
             $cnpHash = hash('sha256', $card['cnp'].$this->settings->cnpSecret());
@@ -156,7 +156,7 @@ final class Registration
             $cnpHash = hash('sha256', mb_strtolower($surname.'|'.$given.'|'.$card['birthDate']).$this->settings->cnpSecret());
         }
         if ('' !== $cnpHash && $this->settings->get('oneAccountPerCard') && null !== $this->mapper->findByCnpHash($cnpHash)) {
-            throw new AlreadyRegisteredException($this->l->t('An account was already created with this identity card.'));
+            throw new AlreadyRegisteredException($this->l->t('An account was already created with this document.'));
         }
 
         return $cnpHash;

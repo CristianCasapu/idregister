@@ -36,7 +36,7 @@ final class LiveScan
     /**
      * Read one frame and add it to the running result.
      *
-     * @return array{status:string, level:int, boxes:list<array{x:float,y:float,w:float,h:float}>, done:bool, lines:int, frames:int, blocked:string, tilt:bool}
+     * @return array{status:string, level:int, boxes:list<array{x:float,y:float,w:float,h:float}>, done:bool, lines:int, frames:int, blocked:string, tilt:bool, document:string}
      */
     public function frame(string $jpeg, bool $acceptIdCard, bool $acceptLicence, bool $requireConfirmedName, bool $requirePhysical = true, bool $requireValid = true): array
     {
@@ -93,17 +93,27 @@ final class LiveScan
             }
         }
 
+        // The driving licence carries a personal number too (field 4d), so "a personal number
+        // was read" does not mean "this is an identity card": the printed title and the numbered
+        // fields decide, and once a licence was seen the licence reader is the one that counts.
         if ($acceptLicence) {
             $licence = DrivingLicenceParser::parse($lines);
             if ($licence['looksLikeLicence']) {
                 ++$state['looksLikeLicence'];
             }
-            if ('' !== $licence['surname'] || '' !== $licence['givenNames']) {
-                $previous = $state['licence'] ?? ['surname' => '', 'givenNames' => '', 'birthDate' => '', 'confidence' => 0.0];
+            if ('' !== $licence['surname'] || '' !== $licence['givenNames'] || $licence['cnpSure'] || '' !== $licence['expiry']) {
+                $previous = $state['licence'] ?? ['surname' => '', 'givenNames' => '', 'birthDate' => '', 'cnp' => '', 'expiry' => '', 'cnpCount' => 0, 'confidence' => 0.0];
+                $cnpCount = (int) ($previous['cnpCount'] ?? 0);
+                if ($licence['cnpSure']) {
+                    $cnpCount = $licence['cnp'] === ($previous['cnp'] ?? '') ? $cnpCount + 1 : 1;
+                }
                 $state['licence'] = [
                     'surname' => '' !== $licence['surname'] ? $licence['surname'] : $previous['surname'],
                     'givenNames' => '' !== $licence['givenNames'] ? $licence['givenNames'] : $previous['givenNames'],
                     'birthDate' => '' !== $licence['birthDate'] ? $licence['birthDate'] : $previous['birthDate'],
+                    'cnp' => $licence['cnpSure'] ? $licence['cnp'] : (string) ($previous['cnp'] ?? ''),
+                    'cnpCount' => $cnpCount,
+                    'expiry' => '' !== $licence['expiry'] ? $licence['expiry'] : (string) ($previous['expiry'] ?? ''),
                     'confidence' => max((float) $licence['confidence'], (float) $previous['confidence']),
                 ];
                 $name = $licence['surname'].'|'.$licence['givenNames'];
@@ -117,11 +127,12 @@ final class LiveScan
                 }
             }
         }
+        $licenceMode = $acceptLicence && $state['looksLikeLicence'] >= 1;
 
         $card = $state['card'];
         $namesOk = '' !== $card['surname'] && '' !== $card['givenNames']
             && (!$requireConfirmedName || ($card['surnameSure'] && $card['givenSure']));
-        $idDone = $acceptIdCard && $card['cnpSure'] && $namesOk && $state['stableCount'] >= 2;
+        $idDone = $acceptIdCard && !$licenceMode && $card['cnpSure'] && $namesOk && $state['stableCount'] >= 2;
         // the end of validity: a few more frames to find it when everything else is read
         $state['expiryWait'] = (int) ($state['expiryWait'] ?? 0);
         $expiryMissing = $requireValid && $idDone && '' === (string) ($card['expiry'] ?? '');
@@ -129,13 +140,35 @@ final class LiveScan
             ++$state['expiryWait'];
             $idDone = false;
         }
-        $licenceDone = $acceptLicence && !$card['cnpSure'] && $state['looksLikeLicence'] >= 2
-            && null !== $state['licence'] && $state['nameCount'] >= 2;
+
+        // the licence: the name twice the same, the personal number twice the same when there is
+        // one, and a few more frames for the number and the validity before giving up on them
+        $licence = $state['licence'];
+        $licenceNameOk = $licenceMode && null !== $licence && $state['looksLikeLicence'] >= 2 && $state['nameCount'] >= 2;
+        $licenceDone = $licenceNameOk;
+        $licenceWaiting = '';
+        if ($licenceNameOk) {
+            $state['licenceWait'] = (int) ($state['licenceWait'] ?? 0);
+            $cnpMissing = ($licence['cnpCount'] ?? 0) < 2;
+            $licenceExpiryMissing = $requireValid && '' === (string) ($licence['expiry'] ?? '');
+            if (($cnpMissing || $licenceExpiryMissing) && $state['licenceWait'] < 8) {
+                ++$state['licenceWait'];
+                $licenceDone = false;
+                $licenceWaiting = $cnpMissing ? 'cnp' : 'expiry';
+            }
+        }
         $done = $idDone || $licenceDone;
 
         [$status, $level] = $this->assess($lines, $read['boxes'], $card, $state, $acceptLicence, $done);
         if (!$done && $expiryMissing && $state['expiryWait'] <= 6 && $card['cnpSure'] && $namesOk) {
-            $status = $this->l->t('Looking for the expiry date — the whole card in the frame');
+            $status = $this->l->t('Identity card ✓ — looking for the expiry date, the whole card in the frame');
+            $level = 1;
+        }
+        if (!$done && 'cnp' === $licenceWaiting) {
+            $status = $this->l->t('Driving licence ✓ — name read, looking for the personal number (4d)');
+            $level = 1;
+        } elseif (!$done && 'expiry' === $licenceWaiting) {
+            $status = $this->l->t('Driving licence ✓ — looking for the validity date (4b)');
             $level = 1;
         }
 
@@ -172,6 +205,7 @@ final class LiveScan
             'frames' => (int) $state['frames'],
             'blocked' => $blocked,
             'tilt' => $tilt,
+            'document' => $licenceMode ? DocumentReader::TYPE_DRIVING_LICENCE : ($this->looksLikeId($lines) || '' !== $card['cnp'] || '' !== $card['surname'] ? DocumentReader::TYPE_ID_CARD : ''),
         ];
     }
 
@@ -225,16 +259,25 @@ final class LiveScan
             $cardResult['birthDate'] = null !== $birth ? $birth->format('Y-m-d') : '';
         }
 
-        if ($acceptLicence && null !== $licence && $looksLikeLicence && !$card['cnpSure']
-            && (!$acceptIdCard || $licence['confidence'] >= $card['confidence'])) {
+        if ($acceptLicence && null !== $licence && $looksLikeLicence) {
+            $cnpSure = ($licence['cnpCount'] ?? 0) >= 2 && '' !== (string) ($licence['cnp'] ?? '');
+            $birth = $licence['birthDate'];
+            if ('' === $birth && $cnpSure) {
+                $fromCnp = IdCardParser::birthDateFromCnp($licence['cnp']);
+                $birth = null !== $fromCnp ? $fromCnp->format('Y-m-d') : '';
+            }
+
             return [
                 'type' => DocumentReader::TYPE_DRIVING_LICENCE,
                 'surname' => $licence['surname'],
                 'givenNames' => $licence['givenNames'],
-                'cnp' => '',
-                'cnpSure' => false,
-                'nameSure' => false,
-                'birthDate' => $licence['birthDate'],
+                'cnp' => $cnpSure ? (string) $licence['cnp'] : '',
+                'cnpSure' => $cnpSure,
+                // the same name in two frames is as good as the machine readable zone of a card
+                'nameSure' => (int) ($state['nameCount'] ?? 0) >= 2,
+                'expiry' => (string) ($licence['expiry'] ?? ''),
+                'expirySure' => '' !== (string) ($licence['expiry'] ?? ''),
+                'birthDate' => $birth,
                 'confidence' => $licence['confidence'],
                 'lines' => 0,
             ];
@@ -256,14 +299,7 @@ final class LiveScan
         if ($done) {
             return [$this->l->t('Read ✓ — hold still'), 2];
         }
-        $text = IdCardParser::stripDiacritics(mb_strtolower(implode(' ', $lines)));
-        $looksLikeId = false;
-        foreach (['roman', 'identit', 'cnp', 'idrou', 'carte de', 'permis', 'conducere', 'driving', 'licen'] as $word) {
-            if (str_contains($text, $word)) {
-                $looksLikeId = true;
-                break;
-            }
-        }
+        $looksLikeId = $this->looksLikeId($lines);
         if (\count($lines) < 3 || 0 === \count($boxes)) {
             return [$this->l->t('Point the camera at the document, inside the frame'), 0];
         }
@@ -298,25 +334,45 @@ final class LiveScan
         if ($outside) {
             return [$this->l->t('Move back a little, the document leaves the frame'), 1];
         }
-        $licenceMode = $acceptLicence && $state['looksLikeLicence'] >= 1 && !$card['cnpSure'];
+        $licenceMode = $acceptLicence && $state['looksLikeLicence'] >= 1;
         if ($licenceMode) {
-            return [null !== $state['licence'] && '' !== $state['licence']['surname']
-                ? $this->l->t('Name read ✓ — hold still')
-                : $this->l->t('Hold still… reading the document'), 1];
+            $licence = $state['licence'];
+            if (null !== $licence && '' !== $licence['surname'] && '' !== $licence['givenNames']) {
+                return [$this->l->t('Driving licence ✓ — name read, hold still'), 1];
+            }
+
+            return [$this->l->t('Driving licence ✓ — hold still, reading the name (fields 1 and 2)'), 1];
         }
         if ($card['cnpSure'] && ('' === $card['surname'] || '' === $card['givenNames'])) {
-            return [$this->l->t('Personal number read ✓ — looking for the name, hold the document straight'), 1];
+            return [$this->l->t('Identity card ✓ — personal number read, looking for the name, hold the card straight'), 1];
         }
         if ($card['cnpSure']) {
-            return [$this->l->t('Almost there — hold still'), 1];
+            return [$this->l->t('Identity card ✓ — almost there, hold still'), 1];
         }
         if ('' !== $card['surname'] && '' === $card['cnp']) {
-            return [$this->l->t('Name read ✓ — looking for the personal number, avoid reflections'), 1];
+            return [$this->l->t('Identity card ✓ — name read, looking for the personal number, avoid reflections'), 1];
         }
         if ('' !== $card['cnp'] && !$card['cnpSure']) {
-            return [$this->l->t('The personal number was misread — avoid reflections, more light'), 1];
+            return [$this->l->t('Identity card ✓ — the personal number was misread, avoid reflections, more light'), 1];
         }
 
         return [$this->l->t('Hold still… reading the document'), 1];
+    }
+
+    /**
+     * Does the text read look like a Romanian identity document (card or licence) at all?
+     *
+     * @param list<string> $lines
+     */
+    private function looksLikeId(array $lines): bool
+    {
+        $text = IdCardParser::stripDiacritics(mb_strtolower(implode(' ', $lines)));
+        foreach (['roman', 'identit', 'cnp', 'idrou', 'carte de', 'permis', 'conducere', 'driving', 'licen'] as $word) {
+            if (str_contains($text, $word)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 }

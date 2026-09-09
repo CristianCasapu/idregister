@@ -25,6 +25,7 @@ declare(strict_types=1);
 		<!-- 0: on a computer, hand over to a phone -->
 		<section class="idreg-step" data-step="0" hidden>
 			<p class="idreg-lead"><?php p($l->t('You need a camera and your document in hand, so this is done on a phone or a tablet. Scan this code with its camera.')); ?></p>
+			<p class="idreg-hint idreg-accepted" id="idreg-accepted-0"></p>
 			<div class="idreg-qr"><canvas id="idreg-qr"></canvas></div>
 			<p class="idreg-hint" id="idreg-qr-url"></p>
 			<ol class="idreg-progress" id="idreg-progress">
@@ -38,6 +39,7 @@ declare(strict_types=1);
 		<!-- 1: the document, read live with the camera -->
 		<section class="idreg-step" data-step="1" hidden>
 			<p class="idreg-lead" id="idreg-doc-lead"><?php p($l->t('Hold your identity card in front of the camera. We read your name from it while you hold it; no picture is stored.')); ?></p>
+			<p class="idreg-hint idreg-accepted" id="idreg-accepted-1"></p>
 			<div id="idreg-consent-gate" hidden>
 				<label class="idreg-check">
 					<input type="checkbox" id="idreg-terms-gate">

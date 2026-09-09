@@ -62,7 +62,9 @@ A **computer** cannot register: it shows a QR code and follows the phone through
   between letters and digits are corrected.
 - Both the **old identity card** (with an MRZ) and the **new electronic card (CEI)** — which has no
   MRZ on the front and uses the labels `Nume/Surname`, `CNP/PIN` — are read, as well as the
-  **driving licence**.
+  **driving licence** (numbered fields: 1 surname, 2 given names, 4b valid until, 4d personal
+  number — the licence carries a CNP too, so the same "one document, one account" rule applies).
+  The page names the document as soon as it is recognised ("Driving licence ✓ …").
 - A printed name is only accepted when two frames agree, or when the OCR confidence is ≥ 0.9 and the
   personal number is valid, so a misread name is never locked onto an account.
 

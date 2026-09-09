@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace OCA\IdRegister\Service;
 
 /**
- * Picks the right reader for the picture: identity card first (it carries a machine readable
- * zone and a personal number, so it is the more reliable of the two), driving licence otherwise.
+ * Picks the right reader for the picture: the driving licence when its title or its numbered
+ * fields are on it, the identity card otherwise.
  */
 final class DocumentReader
 {
@@ -16,7 +16,7 @@ final class DocumentReader
     /**
      * @param list<string> $lines
      *
-     * @return array{type:string, surname:string, givenNames:string, cnp:string, birthDate:string, confidence:float, cnpSure:bool, nameSure:bool}
+     * @return array{type:string, surname:string, givenNames:string, cnp:string, birthDate:string, confidence:float, cnpSure:bool, nameSure:bool, expiry?:string, expirySure?:bool}
      */
     public static function parse(array $lines): array
     {
@@ -41,17 +41,20 @@ final class DocumentReader
             'type' => self::TYPE_DRIVING_LICENCE,
             'surname' => $licence['surname'],
             'givenNames' => $licence['givenNames'],
-            'cnp' => '',
-            'cnpSure' => false,
+            // field 4d of the licence is the personal number, with its check digit
+            'cnp' => $licence['cnp'],
+            'cnpSure' => $licence['cnpSure'],
             // a driving licence has no machine readable zone to check the name against
             'nameSure' => false,
+            'expiry' => $licence['expiry'],
+            'expirySure' => '' !== $licence['expiry'],
             'birthDate' => $licence['birthDate'],
             'confidence' => $licence['confidence'],
         ];
 
-        // A licence is only chosen when the picture really looks like one: the identity card
-        // reader also finds names on a licence, but without the personal number to back them up.
-        if ($licence['looksLikeLicence'] && $licenceResult['confidence'] >= $cardResult['confidence'] && !$card['cnpSure']) {
+        // The printed title and the numbered fields tell a licence apart; the personal number
+        // does not, since the licence carries one too (4d).
+        if ($licence['looksLikeLicence']) {
             return $licenceResult;
         }
 

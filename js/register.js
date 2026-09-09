@@ -409,6 +409,21 @@
 	}
 
 	var debugScan = /[?&]debug=1/.test(window.location.search);
+	// the document in front of the camera, named as soon as it is recognised
+	var seenDocument = '';
+	function documentSeen(type) {
+		if (type === seenDocument) { return; }
+		seenDocument = type;
+		var hint = $('idreg-cam-livehint');
+		if (type === 'driving_licence') {
+			hint.textContent = t('Driving licence detected. It is captured by itself once the name and the personal number (4d) are confirmed.');
+		} else if (type === 'id_card') {
+			hint.textContent = t('Identity card detected. It is captured by itself once the personal number is confirmed.');
+		} else {
+			hint.textContent = t('Dark background, no flash or reflections. It is captured by itself once the personal number is confirmed.');
+		}
+	}
+
 	function setStatus(text, level) {
 		cam.status.textContent = text;
 		cam.level = level;
@@ -474,6 +489,7 @@
 					cam.boxes = data.boxes || [];
 					cam.lines = data.lines || 0;
 					if (data.status) { setStatus(data.status, data.level || 0); }
+					documentSeen(data.document || '');
 					cam.box.classList.toggle('tilt', !!data.tilt);
 					if (data.blocked) {
 						// a copy or a screen: keep looking, the real card may come next
@@ -521,6 +537,7 @@
 	}
 
 	function startCamera() {
+		documentSeen("");
 		if (!ocrReady || cam.running) { return; }
 		if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
 			showPhotoFallback();
@@ -1064,6 +1081,13 @@
 	} else if (conditions.acceptDrivingLicence) {
 		$('idreg-doc-lead').textContent = t('Hold your driving licence in front of the camera. We read your name from it while you hold it; no picture is stored.');
 	}
+	// which documents this server takes, said plainly on the first page
+	var accepted = [];
+	if (conditions.acceptIdCard) { accepted.push(t('the Romanian identity card (old or electronic)')); }
+	if (conditions.acceptDrivingLicence) { accepted.push(t('the Romanian driving licence')); }
+	['idreg-accepted-0', 'idreg-accepted-1'].forEach(function (id) {
+		$(id).textContent = accepted.length ? t('Accepted documents: {list}.', { list: accepted.join(', ') }) : '';
+	});
 
 	var saved = savedState();
 	if (saved) {
