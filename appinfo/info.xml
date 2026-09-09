@@ -6,17 +6,24 @@
     <summary>Self-registration from a phone with a photo of the identity card and a verified e-mail address</summary>
     <summary lang="ro">Înregistrare de pe telefon, cu poza cărții de identitate și adresă de e-mail verificată</summary>
     <description><![CDATA[
-Visitors register themselves from their phone: they photograph their Romanian identity card, the
-server reads the name and given names from it (Tesseract OCR, MRZ and check-digit validated CNP),
-and they add an e-mail address, a phone number and a password.
+Visitors register themselves from their phone: they show their Romanian identity card (or driving
+licence) to the camera, the server reads it live (RapidOCR, with Tesseract as a fallback; MRZ,
+printed labels and a CNP validated by its check digit), checks that the document is physical and not
+a copy on a screen, and compares a selfie with the picture on the document (InsightFace, with a small
+head turn as the liveness proof).
 
-Only the e-mail address is verified, with a six digit code and a confirmation link. The name taken
-from the identity card, the e-mail address and the phone number cannot be changed afterwards.
+In express mode the account is created right away, with a random user name and a password shown
+once; the e-mail address (verified with a six digit code and a link), the phone number and the
+nickname are added afterwards in the profile. The name taken from the document, the e-mail address
+and the phone number cannot be changed once set.
 
-The picture of the identity card is never stored: it is read in memory and discarded. The personal
-number (CNP) is not stored either — only a salted hash of it, so the same card cannot be used twice.
+The picture of the document is never stored: it is read in memory and discarded. The personal number
+(CNP) is not stored either - only a salted hash of it, so the same card cannot be used twice.
+A computer cannot register: it shows a QR code and signs in after the phone is done.
 
-The card reader is a PHP port of the parser in the NecMat app (github.com/CristianCasapu/necmat).
+An Android client with the same flow, plus NFC reading of the chip of the electronic identity card,
+is at github.com/CristianCasapu/idregister-android. The document parser is a PHP port of the one in
+the NecMat app (github.com/CristianCasapu/necmat).
     ]]></description>
     <version>1.11.4</version>
     <licence>agpl</licence>
