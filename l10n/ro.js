@@ -52,12 +52,10 @@ OC.L10N.register(
     "Please accept how your data is used." : "Te rugăm să accepți modul în care îți sunt folosite datele.",
     "The confirmation e-mail could not be sent. Please check the address, or try again later." : "E-mailul de confirmare nu a putut fi trimis. Verifică adresa sau încearcă mai târziu.",
     "Something went wrong. Please try again." : "Ceva nu a mers. Încearcă din nou.",
-    "Sign up with ID: text recognition" : "Înregistrare cu CI: recunoașterea textului",
     "Registration with an identity card is switched off." : "Înregistrarea cu cartea de identitate este oprită.",
     "Tesseract is not installed, so identity cards cannot be read. Install it with: sudo apt install tesseract-ocr tesseract-ocr-ron" : "Tesseract nu este instalat, deci cărțile de identitate nu pot fi citite. Instalează-l cu: sudo apt install tesseract-ocr tesseract-ocr-ron",
     "Tesseract %1$s is installed but these language packs are missing: %2$s. Install them with: sudo apt install %2$s" : "Tesseract %1$s este instalat, dar lipsesc pachetele de limbă: %2$s. Instalează-le cu: sudo apt install %2$s",
     "Tesseract %1$s with the languages %2$s." : "Tesseract %1$s cu limbile %2$s.",
-    "Sign up with ID" : "Înregistrare cu CI",
     "A registration is waiting for approval" : "O înregistrare așteaptă aprobare",
     "%1$s (%2$s) confirmed their e-mail address and is waiting to be let in." : "%1$s (%2$s) și-a confirmat adresa de e-mail și așteaptă să primească acces.",
     "Personal info" : "Date personale",
@@ -117,7 +115,11 @@ OC.L10N.register(
     "Stop after this many accounts (0 = no limit)" : "Oprește după atâtea conturi (0 = fără limită)",
     "Link to your privacy policy (shown on the form)" : "Link către politica de confidențialitate (apare în formular)",
     "E-mail the administrators about every new account" : "Trimite e-mail administratorilor la fiecare cont nou",
-    "The password must have at least %n character." : ["Parola trebuie să aibă cel puțin %n caracter.", "Parola trebuie să aibă cel puțin %n caractere.", "Parola trebuie să aibă cel puțin %n de caractere."],
+    "The password must have at least %n character." : [
+        "Parola trebuie să aibă cel puțin %n caracter.",
+        "Parola trebuie să aibă cel puțin %n caractere.",
+        "Parola trebuie să aibă cel puțin %n de caractere."
+    ],
     "Please continue on a phone or a tablet." : "Te rugăm să continui pe telefon sau pe tabletă.",
     "A driving licence is not accepted here. Please use your identity card." : "Permisul de conducere nu este acceptat aici. Folosește cartea de identitate.",
     "An identity card is not accepted here. Please use your driving licence." : "Cartea de identitate nu este acceptată aici. Folosește permisul de conducere.",
@@ -314,8 +316,6 @@ OC.L10N.register(
     "Install the reader" : "Instalează cititorul",
     "Remove and install again" : "Șterge și instalează din nou",
     "Remove the reader and install it again?" : "Ștergi cititorul și îl instalezi din nou?",
-    "No text recognition is installed, so documents cannot be read. Open Administration settings › Sign up with ID and press \"Install the reader\" (or run occ idregister:install-ocr)." : "Nu este instalată nicio recunoaștere a textului, așa că documentele nu pot fi citite. Deschide Setări de administrare › Înregistrare cu CI și apasă „Instalează cititorul” (sau rulează occ idregister:install-ocr).",
-    "Documents are read with Tesseract %s, which reads photographed cards poorly. Open Administration settings › Sign up with ID and press \"Install the reader\" (or run occ idregister:install-ocr)." : "Documentele sunt citite cu Tesseract %s, care citește slab cărțile fotografiate. Deschide Setări de administrare › Înregistrare cu CI și apasă „Instalează cititorul” (sau rulează occ idregister:install-ocr).",
     "Signing in with Google is not available here." : "Autentificarea cu Google nu este disponibilă aici.",
     "This sign-in has expired. Please start again." : "Această autentificare a expirat. Te rugăm să o iei de la capăt.",
     "This sign-in could not be checked. Please start again." : "Această autentificare nu a putut fi verificată. Te rugăm să o iei de la capăt.",
@@ -398,6 +398,11 @@ OC.L10N.register(
     "You were signed in by your phone" : "Ai fost autentificat de pe telefon",
     "\"%1$s\" approved a sign-in from %2$s (%3$s). If this was not you, remove the phone in your personal settings and change your password." : "„%1$s” a aprobat o autentificare din %2$s (%3$s). Dacă nu ai fost tu, elimină telefonul din setările personale și schimbă-ți parola.",
     "A Google account was linked to your account" : "Un cont Google a fost legat de contul tău",
-    "%s can sign you in from now on. If this was not you, unlink it in your personal settings and change your password." : "%s te poate autentifica de acum. Dacă nu ai fost tu, dezleagă-l din setările personale și schimbă-ți parola."
+    "%s can sign you in from now on. If this was not you, unlink it in your personal settings and change your password." : "%s te poate autentifica de acum. Dacă nu ai fost tu, dezleagă-l din setările personale și schimbă-ți parola.",
+    "IDRegister: text recognition" : "IDRegister: recunoașterea textului",
+    "No text recognition is installed, so documents cannot be read. Open Administration settings › IDRegister and press \"Install the reader\" (or run occ idregister:install-ocr)." : "Nu este instalată nicio recunoaștere a textului, așa că documentele nu pot fi citite. Deschide Setări de administrare › IDRegister și apasă „Instalează cititorul” (sau rulează occ idregister:install-ocr).",
+    "Documents are read with Tesseract %s, which reads photographed cards poorly. Open Administration settings › IDRegister and press \"Install the reader\" (or run occ idregister:install-ocr)." : "Documentele sunt citite cu Tesseract %s, care citește slab cărțile fotografiate. Deschide Setări de administrare › IDRegister și apasă „Instalează cititorul” (sau rulează occ idregister:install-ocr).",
+    "A phone was unpaired from your account" : "Un telefon a fost dezlegat de contul tău",
+    "\"%s\" can no longer sign in to your account. If this was not you, change your password now." : "„%s” nu mai poate deschide contul tău. Dacă nu tu ai făcut asta, schimbă-ți parola acum."
 },
 "nplurals=3; plural=(n==1?0:(((n%100>19)||((n%100==0)&&(n!=0)))?2:1));");

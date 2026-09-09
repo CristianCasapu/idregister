@@ -20,7 +20,7 @@ final class AdminSection implements IIconSection
 
     public function getName(): string
     {
-        return $this->l->t('Sign up with ID');
+        return 'IDRegister';
     }
 
     public function getPriority(): int

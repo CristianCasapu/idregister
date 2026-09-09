@@ -1,8 +1,7 @@
 <?xml version="1.0"?>
 <info xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://apps.nextcloud.com/schema/apps/info.xsd">
     <id>idregister</id>
-    <name>Sign up with ID</name>
-    <name lang="ro">Înregistrare cu CI</name>
+    <name>IDRegister</name>
     <summary>Self-registration from a phone with a photo of the identity card and a verified e-mail address</summary>
     <summary lang="ro">Înregistrare de pe telefon, cu poza cărții de identitate și adresă de e-mail verificată</summary>
     <description><![CDATA[
@@ -34,7 +33,7 @@ An Android client with the same flow, plus NFC reading of the chip of the electr
 is at github.com/CristianCasapu/idregister-android. The document parser is a PHP port of the one in
 the NecMat app (github.com/CristianCasapu/necmat).
     ]]></description>
-    <version>1.16.0</version>
+    <version>1.17.0</version>
     <licence>agpl</licence>
     <author mail="casapucristian@gmail.com">Cristian Casapu</author>
     <namespace>IdRegister</namespace>

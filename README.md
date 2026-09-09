@@ -1,4 +1,4 @@
-# Sign up with ID — `idregister`
+# IDRegister — `idregister`
 
 A **Nextcloud app** (server side, PHP) that lets a visitor create their own account from a phone by
 showing their Romanian identity card to the camera. The server reads the document, checks that it is
@@ -19,7 +19,7 @@ Interface in **Romanian and English** only. Licence AGPL-3.0-or-later.
 
 ## Installing the reader and the face models
 
-Administration settings › **Sign up with ID** › **Install the reader**. A background job builds a
+Administration settings › **IDRegister** › **Install the reader**. A background job builds a
 virtual environment in the data directory (`appdata_<id>/idregister/python`) with RapidOCR,
 ONNX Runtime, OpenCV and numpy — pre-built packages only, no compiler — and downloads
 InsightFace's `buffalo_l` model pack (face detection, recognition and 3D landmarks) next to it.
@@ -111,8 +111,8 @@ on the "Continue with Google" button under the sign-in form signs them in withou
 To set it up, in the [Google Cloud console](https://console.cloud.google.com/apis/credentials)
 create an OAuth client of type *Web application*, add the redirect URI shown in the administration
 page (`https://<your server>/index.php/apps/idregister/google/callback`) to its allowed redirect
-URIs, and paste the client ID and the client secret into **Administration settings › Sign up with
-ID › Sign in with Google**. The consent screen only needs the `openid`, `email` and `profile`
+URIs, and paste the client ID and the client secret into **Administration settings › IDRegister ›
+Sign in with Google**. The consent screen only needs the `openid`, `email` and `profile`
 scopes, which do not need Google's verification.
 
 ## Signing in with the phone
@@ -152,7 +152,7 @@ sudo -u www-data php ../occ app:enable idregister
 sudo -u www-data php ../occ idregister:install-ocr
 ```
 
-Then open **Administration settings › Sign up with ID** and switch registration on. The page is at
+Then open **Administration settings › IDRegister** and switch registration on. The page is at
 `/index.php/apps/idregister/`, and a link is added to the login page.
 
 ## Settings

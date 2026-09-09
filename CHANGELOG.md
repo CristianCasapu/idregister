@@ -4,6 +4,19 @@ All notable changes to this project are documented in this file. The format foll
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses
 [semantic versioning](https://semver.org/).
 
+## [1.17.0] – 2026-09-10
+
+### Added
+- A phone can untie itself from the account, and it has to sign for it: the same key, behind the
+  same fingerprint, over `server + device + time`. The account then loses the phone here as well,
+  instead of keeping a row that no phone answers for any more.
+- A letter to the account, beside the notification, when a phone is paired and when one is
+  unpaired — the moment a phone is taken away is exactly when notifications on it are of no use.
+
+### Changed
+- The app is called **IDRegister**, in the apps list, the administration section, the setup check
+  and the notifications.
+
 ## [1.16.0] – 2026-09-10
 
 ### Added

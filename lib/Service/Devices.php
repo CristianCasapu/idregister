@@ -4,8 +4,10 @@ declare(strict_types=1);
 
 namespace OCA\IdRegister\Service;
 
+use OCP\IConfig;
 use OCP\IDBConnection;
 use OCP\IL10N;
+use OCP\Mail\IMailer;
 use OCP\Notification\IManager as INotificationManager;
 use OCP\IRequest;
 use OCP\IUser;
@@ -50,6 +52,8 @@ final class Devices
         private ISecureRandom $random,
         private Settings $settings,
         private INotificationManager $notifications,
+        private IMailer $mailer,
+        private IConfig $config,
         private IL10N $l,
         private LoggerInterface $logger,
         private \OCP\IURLGenerator $urlGenerator,
@@ -159,6 +163,14 @@ final class Devices
         $this->logger->info('idregister: '.$row['uid'].' paired the phone "'.$name.'"');
         // a phone that can sign this account in is worth saying out loud
         $this->tell((string) $row['uid'], 'phone_paired', $deviceId, ['name' => $name]);
+        $this->mail(
+            (string) $row['uid'],
+            ['ro' => 'Un telefon a fost împerecheat cu contul tău', 'en' => 'A phone was paired with your account'],
+            [
+                'ro' => 'Telefonul „'.$name.'” îți poate deschide contul de acum, fără parolă. Dacă nu tu ai făcut asta, elimină-l din Setări personale și schimbă-ți parola.',
+                'en' => 'The phone "'.$name.'" can sign in to your account from now on, without a password. If this was not you, remove it in your personal settings and change your password.',
+            ],
+        );
 
         return ['account' => $row['uid'], 'name' => $user->getDisplayName(), 'deviceId' => $deviceId];
     }
@@ -190,15 +202,51 @@ final class Devices
         if ('' === $password || !$this->userManager->checkPassword($user->getUID(), $password)) {
             throw new \InvalidArgumentException($this->l->t('That password is not right.'));
         }
+        $device = $this->device($deviceId);
         $query = $this->db->getQueryBuilder();
         $query->delete('idregister_device')
             ->where($query->expr()->eq('uid', $query->createNamedParameter($user->getUID())))
             ->andWhere($query->expr()->eq('device_id', $query->createNamedParameter($deviceId)))
-            ->executeStatement()
         ;
+        if (0 === $query->executeStatement()) {
+            return;
+        }
         $this->logger->info('idregister: '.$user->getUID().' removed a paired phone');
+        $this->removed($user->getUID(), (string) ($device['name'] ?? ''));
     }
 
+    /**
+     * The phone says it is done: it signs the same way it signs a sign-in, so a phone that
+     * somebody picked up cannot quietly untie itself — the fingerprint is asked for first.
+     *
+     * @return array{name:string}
+     */
+    public function forgetSigned(string $deviceId, int $timestamp, string $signature): array
+    {
+        $device = $this->device($deviceId);
+        if (null === $device) {
+            // already gone here; the phone may drop it too
+            return ['name' => ''];
+        }
+        if (abs(time() - $timestamp) > self::SIGN_SKEW) {
+            throw new \InvalidArgumentException($this->l->t('The clock of the phone is too far off.'));
+        }
+        $message = implode("\n", ['idregister-forget-v1', $this->serverUrl(), $deviceId, (string) $timestamp]);
+        if (!$this->verify((string) $device['public_key'], $message, $signature)) {
+            throw new \InvalidArgumentException($this->l->t('The phone could not prove that it holds the key.'));
+        }
+        $query = $this->db->getQueryBuilder();
+        $query->delete('idregister_device')
+            ->where($query->expr()->eq('device_id', $query->createNamedParameter($deviceId)))
+            ->executeStatement()
+        ;
+        $this->logger->info('idregister: a paired phone removed itself from '.$device['uid']);
+        $this->removed((string) $device['uid'], (string) $device['name']);
+
+        return ['name' => (string) $device['name']];
+    }
+
+    /** The same, from the personal settings; the password was asked there. */
     public function forgetAll(string $uid): void
     {
         foreach (['idregister_device', 'idregister_pairing'] as $table) {
@@ -392,6 +440,51 @@ final class Devices
             'user' => $this->userManager->get((string) $row['uid']),
             'redirect' => (string) $row['redirect'],
         ];
+    }
+
+    private function removed(string $uid, string $name): void
+    {
+        $this->tell($uid, 'phone_removed', $name, ['name' => $name]);
+        $this->mail(
+            $uid,
+            ['ro' => 'Un telefon a fost dezlegat de contul tău', 'en' => 'A phone was unpaired from your account'],
+            [
+                'ro' => 'Telefonul „'.$name.'” nu mai poate deschide contul tău. Dacă nu tu ai făcut asta, schimbă-ți parola acum.',
+                'en' => 'The phone "'.$name.'" can no longer sign in to your account. If this was not you, change your password now.',
+            ],
+        );
+    }
+
+    /**
+     * A letter about the things that change how this account can be signed in to. It goes out
+     * beside the notification, because a phone that is taken away is exactly the moment when the
+     * notifications on it are of no use.
+     */
+    private function mail(string $uid, array $subject, array $body): void
+    {
+        try {
+            $user = $this->userManager->get($uid);
+            $address = null === $user ? '' : (string) $user->getSystemEMailAddress();
+            if ('' === $address) {
+                return;
+            }
+            $ro = str_starts_with($this->config->getUserValue($uid, 'core', 'lang', 'ro'), 'ro');
+            $pick = static fn (array $text): string => $ro ? $text['ro'] : $text['en'];
+            $template = $this->mailer->createEMailTemplate('idregister.DeviceNotice', []);
+            $template->setSubject($pick($subject));
+            $template->addHeader();
+            $template->addHeading($ro ? 'Salut, '.$user->getDisplayName() : 'Hello, '.$user->getDisplayName());
+            $template->addBodyText($pick($body));
+            $template->addFooter($ro
+                ? 'Telefoanele legate de cont se văd în Setări personale › Informații personale.'
+                : 'The phones tied to your account are in Personal settings › Personal info.');
+            $message = $this->mailer->createMessage();
+            $message->setTo([$address => $user->getDisplayName()]);
+            $message->useTemplate($template);
+            $this->mailer->send($message);
+        } catch (\Throwable $e) {
+            $this->logger->warning('idregister: the letter about a paired phone could not be sent', ['exception' => $e]);
+        }
     }
 
     /** A notice to the account itself; never worth failing the thing it reports. */

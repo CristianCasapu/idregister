@@ -1,4 +1,4 @@
-/* Administration of Sign up with ID */
+/* Administration of IDRegister */
 (function () {
 	'use strict';
 
@@ -154,7 +154,7 @@
 		}).join('');
 
 		root.innerHTML = ''
-			+ '<h2>' + esc(t('Sign up with ID')) + '</h2>'
+			+ '<h2>IDRegister</h2>'
 			+ '<p class="muted">' + esc(t('Visitors register themselves with a photo of their identity card and a verified e-mail address. The picture and the personal number are never stored.')) + '</p>'
 			+ '<div id="idreg-reader"></div>'
 			+ '<div class="idreg-admin-row"><label><input type="checkbox" id="cfg-open"' + (config.registrationOpen ? ' checked' : '') + '> ' + esc(t('Allow registration with an identity card')) + '</label></div>'

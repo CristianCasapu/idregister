@@ -96,6 +96,16 @@ final class DeviceController extends Controller
         return $this->phone(fn () => $this->devices->completePairing($token, $publicKey, $name, $signature), 'idregisterPair');
     }
 
+    /** The phone unties itself. It signs for it, so a stray hand cannot do it. */
+    #[PublicPage]
+    #[NoCSRFRequired]
+    #[AnonRateLimit(limit: 30, period: 600)]
+    #[BruteForceProtection(action: 'idregisterForget')]
+    public function forgetFromPhone(string $deviceId = '', int $timestamp = 0, string $signature = ''): JSONResponse
+    {
+        return $this->phone(fn () => $this->devices->forgetSigned($deviceId, $timestamp, $signature), 'idregisterForget');
+    }
+
     /** What is being asked, so the phone can show it before anybody puts a finger on the reader. */
     #[PublicPage]
     #[NoCSRFRequired]

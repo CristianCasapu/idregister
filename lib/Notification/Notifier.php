@@ -22,7 +22,7 @@ final class Notifier implements INotifier
 
     public function getName(): string
     {
-        return $this->l10nFactory->get(Application::APP_ID)->t('Sign up with ID');
+        return 'IDRegister';
     }
 
     public function prepare(INotification $notification, string $languageCode): INotification
@@ -45,6 +45,11 @@ final class Notifier implements INotifier
             'phone_paired' => $notification
                 ->setParsedSubject($l->t('A phone was paired with your account'))
                 ->setParsedMessage($l->t('"%s" can sign you in from now on. If this was not you, remove it in your personal settings and change your password.', [(string) ($params['name'] ?? '')]))
+                ->setLink($personal)
+                ->setIcon($this->urlGenerator->getAbsoluteURL($this->urlGenerator->imagePath('core', 'clients/phone.svg'))),
+            'phone_removed' => $notification
+                ->setParsedSubject($l->t('A phone was unpaired from your account'))
+                ->setParsedMessage($l->t('"%s" can no longer sign in to your account. If this was not you, change your password now.', [(string) ($params['name'] ?? '')]))
                 ->setLink($personal)
                 ->setIcon($this->urlGenerator->getAbsoluteURL($this->urlGenerator->imagePath('core', 'clients/phone.svg'))),
             'phone_signin' => $notification

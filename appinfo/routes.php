@@ -38,6 +38,7 @@ return [
         ['name' => 'device#pairComplete', 'url' => '/api/device/pair/complete', 'verb' => 'POST'],
         ['name' => 'device#devices', 'url' => '/api/device', 'verb' => 'GET'],
         ['name' => 'device#forget', 'url' => '/api/device/forget', 'verb' => 'POST'],
+        ['name' => 'device#forgetFromPhone', 'url' => '/api/device/forget/phone', 'verb' => 'POST'],
         ['name' => 'device#describe', 'url' => '/api/device/auth', 'verb' => 'POST'],
         ['name' => 'device#approve', 'url' => '/api/device/auth/approve', 'verb' => 'POST'],
         ['name' => 'device#deny', 'url' => '/api/device/auth/deny', 'verb' => 'POST'],
