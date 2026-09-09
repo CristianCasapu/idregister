@@ -25,7 +25,7 @@ An Android client with the same flow, plus NFC reading of the chip of the electr
 is at github.com/CristianCasapu/idregister-android. The document parser is a PHP port of the one in
 the NecMat app (github.com/CristianCasapu/necmat).
     ]]></description>
-    <version>1.12.1</version>
+    <version>1.12.2</version>
     <licence>agpl</licence>
     <author mail="casapucristian@gmail.com">Cristian Casapu</author>
     <namespace>IdRegister</namespace>

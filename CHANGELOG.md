@@ -4,6 +4,14 @@ All notable changes to this project are documented in this file. The format foll
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses
 [semantic versioning](https://semver.org/).
 
+## [1.12.2] – 2026-09-09
+
+### Fixed
+- Unconfirmed registrations are cleared away every hour again. The cleanup job was marked time
+  insensitive, and on an instance with a maintenance window such jobs only run inside it, so an
+  abandoned registration — and the identity document it holds — stayed blocked until the next
+  night instead of an hour past its expiry.
+
 ## [1.12.1] – 2026-09-09
 
 ### Changed
