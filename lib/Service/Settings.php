@@ -74,6 +74,8 @@ final class Settings
         // it afterwards. The client secret is not here — it is written sensitive and never read back.
         'googleEnabled' => false,
         'googleClientId' => '',
+        // "Sign in with your phone": a paired phone approves the sign-in with a signature
+        'phoneLoginEnabled' => false,
         // registration only from a phone or tablet; a desktop gets a QR code
         'mobileOnly' => true,
         // express: the account is created right after the document (and the selfie), with a random

@@ -115,6 +115,25 @@ URIs, and paste the client ID and the client secret into **Administration settin
 ID › Sign in with Google**. The consent screen only needs the `openid`, `email` and `profile`
 scopes, which do not need Google's verification.
 
+## Signing in with the phone
+
+A phone that was paired with an account can sign it in on any computer, without a password.
+
+- **Pairing** starts in **Personal settings › Personal info › Sign in with your phone**: the
+  password is asked again, the page shows a code, and the app reads it. The app makes a key pair in
+  the Android key store (the private half never leaves the phone and only works after a
+  fingerprint) and sends the public half with a signature over the pairing code, so only the phone
+  that made the key can finish.
+- **Signing in**: "Sign in with your phone" under the sign-in form shows a code and two digits. The
+  phone reads the code, shows which browser is asking and from where, and asks for those two digits
+  among three; then it signs `server + request + nonce + digits + time` and the browser is let in.
+- The request lives two minutes and is used once; the session only ever goes to the browser that
+  started it, which holds a secret the server keeps only as a hash. A second factor is still asked.
+- What this cannot do is prove to the person that the screen in front of them belongs to this
+  server: somebody could show a sign-in request of their own and ask for it to be scanned. The two
+  digits and the details shown on the phone are there to make that obvious. A passkey (Nextcloud's
+  own "Passwordless authentication") is the only thing that removes the question entirely.
+
 ## Requirements
 
 - Nextcloud 30 – 34, PHP ≥ 8.1 with `imagick` (or GD as a fallback).
@@ -156,6 +175,7 @@ Everything is in the admin section; the ones that matter most:
 | `androidAppUrl` | releases page | suggested when the web scan struggles |
 | `googleEnabled` | off | "Continue with Google" for accounts that linked one |
 | `googleClientId` | empty | the OAuth client of the Google Cloud project |
+| `phoneLoginEnabled` | off | "Sign in with your phone" for accounts that paired one |
 
 ## Commands
 
@@ -192,6 +212,10 @@ După ce contul există, posesorul își poate lega un cont Google din setările
 autentifica apoi cu „Continuă cu Google”, fără parolă. Google nu creează niciodată un cont aici, iar
 legarea merge doar cu acel cont Google a cărui adresă verificată de Google este chiar adresa
 confirmată aici.
+
+Aceeași aplicație Android poate fi împerecheată cu contul: după aceea, pagina de autentificare
+oferă „Autentificare cu telefonul”, care arată un cod și două cifre, iar telefonul — după amprentă —
+semnează răspunsul cu o cheie care nu îl părăsește niciodată.
 
 Aplicația Android care face același lucru cu camera telefonului (și citește cipul cărții electronice
 prin NFC) este la [CristianCasapu/idregister-android](https://github.com/CristianCasapu/idregister-android).

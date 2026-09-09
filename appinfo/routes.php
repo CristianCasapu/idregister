@@ -31,6 +31,18 @@ return [
         ['name' => 'google#callback', 'url' => '/google/callback', 'verb' => 'GET'],
         ['name' => 'google#start', 'url' => '/api/google/link', 'verb' => 'POST'],
         ['name' => 'google#unlink', 'url' => '/api/google/unlink', 'verb' => 'POST'],
+        // signing in with a paired phone
+        ['name' => 'device#page', 'url' => '/device/login', 'verb' => 'GET'],
+        ['name' => 'device#pair', 'url' => '/api/device/pair', 'verb' => 'POST'],
+        ['name' => 'device#pairStatus', 'url' => '/api/device/pair', 'verb' => 'GET'],
+        ['name' => 'device#pairComplete', 'url' => '/api/device/pair/complete', 'verb' => 'POST'],
+        ['name' => 'device#devices', 'url' => '/api/device', 'verb' => 'GET'],
+        ['name' => 'device#forget', 'url' => '/api/device/forget', 'verb' => 'POST'],
+        ['name' => 'device#describe', 'url' => '/api/device/auth', 'verb' => 'POST'],
+        ['name' => 'device#approve', 'url' => '/api/device/auth/approve', 'verb' => 'POST'],
+        ['name' => 'device#deny', 'url' => '/api/device/auth/deny', 'verb' => 'POST'],
+        ['name' => 'device#loginStart', 'url' => '/api/device/login', 'verb' => 'POST'],
+        ['name' => 'device#loginPoll', 'url' => '/api/device/login/poll', 'verb' => 'POST'],
         // administration
         ['name' => 'admin#config', 'url' => '/api/admin/config', 'verb' => 'GET'],
         ['name' => 'admin#setConfig', 'url' => '/api/admin/config', 'verb' => 'PUT'],

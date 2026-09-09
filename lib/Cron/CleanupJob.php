@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace OCA\IdRegister\Cron;
 
+use OCA\IdRegister\Service\Devices;
 use OCA\IdRegister\Service\Handoff;
 use OCA\IdRegister\Service\Registration;
 use OCP\AppFramework\Utility\ITimeFactory;
@@ -13,7 +14,13 @@ use Psr\Log\LoggerInterface;
 /** Removes registrations that were never confirmed (and their disabled accounts). */
 final class CleanupJob extends TimedJob
 {
-    public function __construct(ITimeFactory $time, private Registration $registration, private Handoff $handoff, private LoggerInterface $logger)
+    public function __construct(
+        ITimeFactory $time,
+        private Registration $registration,
+        private Handoff $handoff,
+        private Devices $devices,
+        private LoggerInterface $logger,
+    )
     {
         parent::__construct($time);
         $this->setInterval(3600);
@@ -23,6 +30,7 @@ final class CleanupJob extends TimedJob
     {
         try {
             $this->handoff->purge();
+            $this->devices->forgetExpired();
             $removed = $this->registration->cleanup();
             if ($removed > 0) {
                 $this->logger->info('idregister: '.$removed.' unconfirmed registrations removed');

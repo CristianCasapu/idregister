@@ -6,6 +6,7 @@ namespace OCA\IdRegister\Settings;
 
 use OCA\IdRegister\AppInfo\Application;
 use OCA\IdRegister\Controller\GoogleController;
+use OCA\IdRegister\Service\Devices;
 use OCA\IdRegister\Service\Google;
 use OCP\AppFramework\Http\TemplateResponse;
 use OCP\AppFramework\Services\IInitialState;
@@ -26,6 +27,7 @@ final class Personal implements ISettings
         private IDBConnection $db,
         private \OCA\IdRegister\Service\Profile $profile,
         private Google $google,
+        private Devices $devices,
         private IConfig $config,
     ) {}
 
@@ -48,10 +50,26 @@ final class Personal implements ISettings
             }
         }
         $this->initialState->provideInitialState('google', $this->googleState());
+        $this->initialState->provideInitialState('phone', $this->phoneState());
         $this->initialState->provideInitialState('locked', $locked ?? false);
         $this->initialState->provideInitialState('profile', null !== $user && null !== $locked ? $this->profile->state($user) : false);
 
         return new TemplateResponse(Application::APP_ID, 'personal');
+    }
+
+    /**
+     * The phones paired with this account, if signing in with a phone is switched on.
+     *
+     * @return array{enabled:bool, devices:list<array{deviceId:string, name:string, created:int, lastUsed:int}>}|false
+     */
+    private function phoneState(): array|false
+    {
+        $user = $this->userSession->getUser();
+        if (null === $user || !$this->devices->enabled()) {
+            return false;
+        }
+
+        return ['enabled' => true, 'devices' => $this->devices->devices($user->getUID())];
     }
 
     /**

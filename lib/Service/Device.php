@@ -28,4 +28,39 @@ final class Device
         // an iPad on recent iOS says "Macintosh"; the browser settles it with its touch report
         return 1 !== preg_match(self::DESKTOP_HINT, $userAgent);
     }
+
+    /**
+     * A short "Firefox on Windows" for the phone to show before a sign-in is approved. Read from
+     * the same User-Agent, so it is a help for the person, not a proof of anything.
+     */
+    public static function describe(string $userAgent): string
+    {
+        $browsers = [
+            'Edge' => '/Edg[e]?\//', 'Opera' => '/OPR\/|Opera/', 'Samsung Internet' => '/SamsungBrowser/',
+            'Chrome' => '/Chrome|Chromium|CriOS/', 'Firefox' => '/Firefox|FxiOS/', 'Safari' => '/Safari/',
+        ];
+        $systems = [
+            'Android' => '/Android/', 'iPhone' => '/iPhone/', 'iPad' => '/iPad/', 'Windows' => '/Windows NT/',
+            'macOS' => '/Macintosh|Mac OS X/', 'Chrome OS' => '/CrOS/', 'Linux' => '/Linux/',
+        ];
+        $found = static function (array $candidates) use ($userAgent): string {
+            foreach ($candidates as $name => $pattern) {
+                if (1 === preg_match($pattern, $userAgent)) {
+                    return $name;
+                }
+            }
+
+            return '';
+        };
+        $browser = $found($browsers);
+        $system = $found($systems);
+        if ('' === $browser && '' === $system) {
+            return 'unknown browser';
+        }
+        if ('' === $system) {
+            return $browser;
+        }
+
+        return '' === $browser ? $system : $browser.' · '.$system;
+    }
 }

@@ -27,6 +27,7 @@
 
 	var config = initial('config', {});
 	var google = initial('google', { secretSet: false, ready: false, redirectUri: '' });
+	var phoneServer = initial('phoneServer', '');
 	var ocr = initial('ocr', { ok: false, version: '', languages: [], missing: [] });
 	var faces = initial('faces', { available: false, python: '', root: '' });
 	var reader = initial('reader', { installed: false, canInstall: false, reason: '', install: { state: 'idle' } });
@@ -196,6 +197,11 @@
 			+ '<div class="idreg-admin-row"><a href="' + esc(registerUrl) + '" target="_blank" rel="noopener">' + esc(t('Open the registration page')) + '</a></div>'
 			+ '<h3>' + esc(t('Sign in with Google')) + '</h3>'
 			+ '<div id="idreg-google"></div>'
+			+ '<h3>' + esc(t('Sign in with your phone')) + '</h3>'
+			+ '<div class="idreg-admin-row"><label><input type="checkbox" id="cfg-phone-login"' + (config.phoneLoginEnabled ? ' checked' : '') + '> '
+			+ esc(t('Let a paired phone sign an account in')) + '</label></div>'
+			+ '<p class="muted">' + esc(t('The account pairs the registration app with itself in its personal settings, with its password and a code on the screen. Afterwards the sign-in page offers "Sign in with your phone": it shows a code and two digits, the phone reads the code, shows who is asking and from where, and signs the answer with a key that never leaves it. A second factor, if the account has one, is still asked afterwards.')) + '</p>'
+			+ '<div class="idreg-admin-row"><label>' + esc(t('Address the phone talks to')) + ' <input type="text" size="60" readonly value="' + esc(phoneServer) + '" onclick="this.select()"></label></div>'
 			+ '<h3>' + esc(t('Registrations')) + '</h3>'
 			+ (registrations.length
 				? '<table><thead><tr><th>' + esc(t('Person')) + '</th><th>' + esc(t('Contact')) + '</th><th>' + esc(t('Status')) + '</th><th>' + esc(t('Started')) + '</th><th></th></tr></thead><tbody>' + rows + '</tbody></table>'
@@ -212,6 +218,7 @@
 		document.getElementById('cfg-notify').addEventListener('change', function (e) { save({ notifyAdmins: e.target.checked }); });
 		document.getElementById('cfg-mobileonly').addEventListener('change', function (e) { save({ mobileOnly: e.target.checked }); });
 		document.getElementById('cfg-express').addEventListener('change', function (e) { save({ expressMode: e.target.checked }); });
+		document.getElementById('cfg-phone-login').addEventListener('change', function (e) { save({ phoneLoginEnabled: e.target.checked }); });
 		document.getElementById('cfg-idcard').addEventListener('change', function (e) { save({ acceptIdCard: e.target.checked }); });
 		document.getElementById('cfg-licence').addEventListener('change', function (e) { save({ acceptDrivingLicence: e.target.checked }); });
 		document.getElementById('cfg-selfie').addEventListener('change', function (e) { save({ requireSelfie: e.target.checked }); });

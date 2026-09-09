@@ -26,11 +26,15 @@ sign in with "Continue with Google" afterwards, without a password. Google never
 here, and only a Google account whose Google-verified address is the address already confirmed here
 can be tied to one.
 
+The same Android client can also be paired with an account: from then on the sign-in page offers
+"Sign in with your phone", which shows a code and two digits, and the phone - after a fingerprint -
+signs the answer with a key that never leaves it.
+
 An Android client with the same flow, plus NFC reading of the chip of the electronic identity card,
 is at github.com/CristianCasapu/idregister-android. The document parser is a PHP port of the one in
 the NecMat app (github.com/CristianCasapu/necmat).
     ]]></description>
-    <version>1.14.0</version>
+    <version>1.15.0</version>
     <licence>agpl</licence>
     <author mail="casapucristian@gmail.com">Cristian Casapu</author>
     <namespace>IdRegister</namespace>

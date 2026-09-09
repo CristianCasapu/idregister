@@ -55,9 +55,15 @@ final class SignIn
             // without this the session would count as fully signed in and the second factor
             // would simply be skipped
             $twoFactor->prepareTwoFactorLogin($user, $remember);
-            $providers = $twoFactor->getProviderSet($user)->getPrimaryProviders();
+            $set = $twoFactor->getProviderSet($user);
+            $providers = $set->getPrimaryProviders();
             $params = '' === $redirectUrl ? [] : ['redirect_url' => $redirectUrl];
-            if (1 === \count($providers) && !$twoFactor->getProviderSet($user)->isProviderMissing()) {
+            $mandatory = \OCP\Server::get(\OC\Authentication\TwoFactorAuth\MandatoryTwoFactor::class);
+            if ([] === $providers && !$set->isProviderMissing() && [] !== $twoFactor->getLoginSetupProviders($user) && $mandatory->isEnforcedFor($user)) {
+                // a second factor is required of this account but none is set up yet
+                return $this->urlGenerator->linkToRoute('core.TwoFactorChallenge.setupProviders', $params);
+            }
+            if (1 === \count($providers) && !$set->isProviderMissing()) {
                 $provider = array_pop($providers);
 
                 return $this->urlGenerator->linkToRoute('core.TwoFactorChallenge.showChallenge', $params + ['challengeProviderId' => $provider->getId()]);

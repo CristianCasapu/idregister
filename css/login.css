@@ -58,3 +58,25 @@
 	background: #f7f8f8;
 	border-color: #c6c9cc;
 }
+
+/* "Sign in with your phone": the same shape as the registration link, one notch quieter */
+.idregister-phone-link {
+	display: block;
+	box-sizing: border-box;
+	width: 100%;
+	text-align: center;
+	margin-top: 10px;
+	padding: 12px 16px;
+	border: 2px solid var(--color-primary-element-text, #fff);
+	border-radius: var(--border-radius-element, 24px);
+	background: transparent;
+	color: var(--color-primary-element-text, #fff) !important;
+	font-weight: 600;
+	text-decoration: none !important;
+}
+
+.idregister-phone-link:hover,
+.idregister-phone-link:focus-visible {
+	background: var(--color-primary-element-text, #fff);
+	color: var(--color-primary-element, #0082c9) !important;
+}

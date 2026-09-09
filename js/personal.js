@@ -15,6 +15,7 @@
 	var locked = initial('locked');
 	var profile = initial('profile');
 	var google = initial('google');
+	var phone = initial('phone');
 
 	var esc = function (s) {
 		return String(s || '').replace(/[&<>"']/g, function (c) {
@@ -23,6 +24,14 @@
 	};
 	var url = function (path) {
 		return (typeof OC !== 'undefined' && OC.generateUrl) ? OC.generateUrl('/apps/idregister' + path) : '/index.php/apps/idregister' + path;
+	};
+	var get = function (path, query) {
+		var address = url(path);
+		if (query) {
+			address += (address.indexOf('?') >= 0 ? '&' : '?') + query;
+		}
+		return fetch(address, { headers: { requesttoken: (typeof OC !== 'undefined' && OC.requestToken) || '' } })
+			.then(function (r) { return r.json(); });
 	};
 	var post = function (path, body) {
 		return fetch(url(path), {
@@ -80,9 +89,100 @@
 		}
 	}
 
-	root.innerHTML = '<div id="idreg-personal-main"></div><div id="idreg-google"></div>';
+	/* "Sign in with your phone": the phones paired with this account */
+	var pairing = null;
+	var pairTimer = null;
+
+	function stopPairing() {
+		if (pairTimer) { window.clearTimeout(pairTimer); pairTimer = null; }
+		pairing = null;
+	}
+
+	function when(seconds) {
+		if (!seconds) { return t('never'); }
+		return new Date(seconds * 1000).toLocaleString();
+	}
+
+	function renderPhone(message, ok) {
+		var box = document.getElementById('idreg-phone');
+		if (!box || !phone || !phone.enabled) { return; }
+		var list = phone.devices.length
+			? '<ul class="locked-list">' + phone.devices.map(function (d) {
+				return '<li><strong>' + esc(d.name) + '</strong> <span class="muted">'
+					+ esc(t('paired {when}, last used {used}', { when: when(d.created), used: when(d.lastUsed) })) + '</span> '
+					+ '<button type="button" class="idreg-forget" data-id="' + esc(d.deviceId) + '">' + esc(t('Remove')) + '</button></li>';
+			}).join('') + '</ul>'
+			: '<p class="muted">' + esc(t('No phone is paired with your account yet.')) + '</p>';
+
+		var body;
+		if (pairing) {
+			body = '<p class="muted">' + esc(t('In the app, press "Pair this phone" and point it at this code.')) + '</p>'
+				+ '<canvas id="idreg-pair-qr" width="1" height="1"></canvas>'
+				+ '<div class="idreg-admin-row"><span class="muted" id="idreg-pair-state">' + esc(t('Waiting for the phone …')) + '</span> '
+				+ '<button type="button" id="idreg-pair-cancel">' + esc(t('Cancel')) + '</button></div>';
+		} else {
+			body = '<div class="idreg-admin-row"><label for="idreg-pair-pass">' + esc(t('Your password')) + '</label> '
+				+ '<input type="password" id="idreg-pair-pass" autocomplete="current-password"> '
+				+ '<button type="button" class="primary" id="idreg-pair-start">' + esc(t('Pair a phone')) + '</button></div>'
+				+ '<p class="muted">' + esc(t('The password is asked again so that nobody else can add a phone to your account. The phone keeps a key that never leaves it and only works after your fingerprint.')) + '</p>';
+		}
+		box.innerHTML = '<div class="section"><h2>' + esc(t('Sign in with your phone')) + '</h2>'
+			+ '<p class="muted">' + esc(t('A paired phone can sign you in on any computer: the sign-in page shows a code, you scan it and choose the two digits shown there.')) + '</p>'
+			+ list + body
+			+ (message ? '<p class="' + (ok ? 'ok' : 'error') + '">' + esc(message) + '</p>' : '') + '</div>';
+
+		if (pairing) {
+			document.getElementById('idreg-pair-qr').dataset.payload = pairing.payload;
+			window.idregDrawQr(document.getElementById('idreg-pair-qr'), pairing.payload, 220);
+			document.getElementById('idreg-pair-cancel').addEventListener('click', function () { stopPairing(); renderPhone(); });
+		} else {
+			document.getElementById('idreg-pair-start').addEventListener('click', function () {
+				var field = document.getElementById('idreg-pair-pass');
+				post('/api/device/pair', { password: field.value }).then(function (data) {
+					field.value = '';
+					if (!data || !data.ok) { renderPhone((data && data.message) || t('Something went wrong. Please try again.'), false); return; }
+					pairing = data;
+					renderPhone();
+					watchPairing();
+				}).catch(function () {
+					// too many tries in a row, or the server did not answer at all
+					renderPhone(t('Too many tries. Please wait a few minutes and try again.'), false);
+				});
+			});
+		}
+		Array.prototype.forEach.call(box.querySelectorAll('button.idreg-forget'), function (b) {
+			b.addEventListener('click', function () {
+				var password = window.prompt(t('Type your password to remove this phone.'));
+				if (!password) { return; }
+				post('/api/device/forget', { deviceId: b.dataset.id, password: password }).then(function (data) {
+					if (!data || !data.ok) { renderPhone((data && data.message) || t('Something went wrong. Please try again.'), false); return; }
+					phone.devices = data.devices;
+					renderPhone(t('The phone was removed.'), true);
+				}).catch(function () {
+					renderPhone(t('Too many tries. Please wait a few minutes and try again.'), false);
+				});
+			});
+		});
+	}
+
+	function watchPairing() {
+		if (!pairing) { return; }
+		get('/api/device/pair', 'token=' + encodeURIComponent(pairing.token)).then(function (data) {
+			if (!data || !data.ok || 'gone' === data.state) { stopPairing(); renderPhone(t('This pairing code has expired. Ask for a new one.'), false); return; }
+			if ('done' === data.state) {
+				phone.devices = data.devices;
+				stopPairing();
+				renderPhone(t('Your phone is paired. You can sign in with it from now on.'), true);
+				return;
+			}
+			pairTimer = window.setTimeout(watchPairing, 2000);
+		}).catch(function () { pairTimer = window.setTimeout(watchPairing, 4000); });
+	}
+
+	root.innerHTML = '<div id="idreg-personal-main"></div><div id="idreg-google"></div><div id="idreg-phone"></div>';
 	var main = document.getElementById('idreg-personal-main');
 	renderGoogle('');
+	renderPhone();
 	if (!locked) { return; }
 
 	/* an account made the classic way: everything is fixed */

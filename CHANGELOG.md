@@ -4,6 +4,21 @@ All notable changes to this project are documented in this file. The format foll
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses
 [semantic versioning](https://semver.org/).
 
+## [1.15.0] – 2026-09-10
+
+### Added
+- **Sign in with your phone.** An account pairs the Android app with itself in Personal settings
+  (its password is asked again, and a code on the screen is read by the phone); the phone makes a
+  key pair in the Android key store, keeps the private half behind a fingerprint and sends only the
+  public half. Afterwards the sign-in page offers "Sign in with your phone": it shows a code and two
+  digits, the phone shows which browser is asking and from where, the person picks those two digits
+  among three, and the phone signs the answer. The browser that started the request is the only one
+  that can collect the session, the request lives two minutes and is used once, and an account with
+  a second factor still has to pass it.
+- Paired phones are listed in Personal settings with the day they were paired and when they were
+  last used; removing one asks for the password again. Deleting an account removes its phones.
+- An administration switch (`phoneLoginEnabled`, off by default) and the address the phone talks to.
+
 ## [1.14.0] – 2026-09-10
 
 ### Added

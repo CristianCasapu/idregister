@@ -61,3 +61,10 @@
 #idregister-admin .idreg-warn { color: var(--color-warning); }
 #idregister-admin .idreg-error { color: var(--color-error); }
 #idregister-admin .idreg-log { max-width: 900px; max-height: 240px; overflow: auto; font-size: 12px; background: var(--color-background-dark); padding: 8px; border-radius: var(--border-radius); white-space: pre-wrap; }
+
+/* the pairing code in the personal settings */
+#idreg-pair-qr {
+	display: block;
+	margin: 8px 0;
+	border-radius: 8px;
+}

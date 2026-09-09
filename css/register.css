@@ -643,3 +643,19 @@ html.idreg-cam-open .idreg-spinner {
 @keyframes idreg-blink { to { visibility: hidden; } }
 html.idreg-cam-open .idreg-net { bottom: calc(max(16px, env(safe-area-inset-bottom)) + 62px); left: 12px; }
 .idreg-message-link { color: #fff; text-decoration: underline; font-weight: 600; }
+
+/* the digits to choose on the phone, on the sign-in page */
+.idreg-number {
+	margin: 12px 0 4px;
+}
+
+.idreg-number strong {
+	display: block;
+	font-size: 40px;
+	letter-spacing: 8px;
+	line-height: 1.2;
+}
+
+.idreg-links {
+	margin-top: 16px;
+}
