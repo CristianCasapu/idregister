@@ -6,6 +6,7 @@ namespace OCA\IdRegister\Service;
 
 use OCP\IDBConnection;
 use OCP\IL10N;
+use OCP\Notification\IManager as INotificationManager;
 use OCP\IRequest;
 use OCP\IUser;
 use OCP\IUserManager;
@@ -48,6 +49,7 @@ final class Devices
         private IUserManager $userManager,
         private ISecureRandom $random,
         private Settings $settings,
+        private INotificationManager $notifications,
         private IL10N $l,
         private LoggerInterface $logger,
         private \OCP\IURLGenerator $urlGenerator,
@@ -155,6 +157,8 @@ final class Devices
             ->executeStatement()
         ;
         $this->logger->info('idregister: '.$row['uid'].' paired the phone "'.$name.'"');
+        // a phone that can sign this account in is worth saying out loud
+        $this->tell((string) $row['uid'], 'phone_paired', $deviceId, ['name' => $name]);
 
         return ['account' => $row['uid'], 'name' => $user->getDisplayName(), 'deviceId' => $deviceId];
     }
@@ -330,6 +334,11 @@ final class Devices
             ->executeStatement()
         ;
         $this->logger->info('idregister: a paired phone approved a sign-in for '.$device['uid']);
+        $this->tell((string) $device['uid'], 'phone_signin', $requestId, [
+            'name' => (string) $device['name'],
+            'browser' => (string) $row['browser'],
+            'ip' => (string) $row['ip'],
+        ]);
 
         return (string) $device['uid'];
     }
@@ -383,6 +392,23 @@ final class Devices
             'user' => $this->userManager->get((string) $row['uid']),
             'redirect' => (string) $row['redirect'],
         ];
+    }
+
+    /** A notice to the account itself; never worth failing the thing it reports. */
+    private function tell(string $uid, string $subject, string $object, array $parameters): void
+    {
+        try {
+            $notification = $this->notifications->createNotification();
+            $notification->setApp(\OCA\IdRegister\AppInfo\Application::APP_ID)
+                ->setUser($uid)
+                ->setObject('device', $object)
+                ->setDateTime(new \DateTime())
+                ->setSubject($subject, $parameters)
+            ;
+            $this->notifications->notify($notification);
+        } catch (\Throwable $e) {
+            $this->logger->warning('idregister: the notice about a paired phone could not be sent', ['exception' => $e]);
+        }
     }
 
     /** Rows nobody will come back for. Called by the cleanup job and before every new request. */

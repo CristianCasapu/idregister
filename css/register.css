@@ -644,18 +644,124 @@ html.idreg-cam-open .idreg-spinner {
 html.idreg-cam-open .idreg-net { bottom: calc(max(16px, env(safe-area-inset-bottom)) + 62px); left: 12px; }
 .idreg-message-link { color: #fff; text-decoration: underline; font-weight: 600; }
 
-/* the digits to choose on the phone, on the sign-in page */
-.idreg-number {
-	margin: 12px 0 4px;
+/* ---- signing in with the phone ---- */
+
+/*
+ * This page is one column, centred, and says so itself: the guest page around it centres some
+ * things and not others, and `.idreg-card` is built for the wide registration wizard.
+ */
+.idreg-phone.idreg-card {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: 12px;
+	max-width: 380px;
+	padding: 26px 22px 20px;
+	text-align: center;
 }
 
-.idreg-number strong {
+.idreg-phone h1 {
+	margin: 0;
+	font-size: 1.25rem;
+}
+
+.idreg-phone .idreg-lead {
+	margin: 0;
+	max-width: 300px;
+	font-size: 0.92rem;
+	line-height: 1.4;
+	color: var(--color-text-maxcontrast, #767676);
+}
+
+.idreg-phone .idreg-message {
+	width: 100%;
+	margin: 0;
+}
+
+/* the code stays on white whatever the theme: that is what a camera reads best */
+.idreg-qr-frame {
+	margin-top: 4px;
+	padding: 14px;
+	background: #fff;
+	border: 1px solid rgba(0, 0, 0, 0.08);
+	border-radius: 16px;
+	box-shadow: 0 1px 6px rgba(0, 0, 0, 0.16);
+	line-height: 0;
+}
+
+.idreg-qr-frame canvas {
 	display: block;
-	font-size: 40px;
-	letter-spacing: 8px;
-	line-height: 1.2;
+}
+
+.idreg-phone .idreg-number {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: 8px;
+	margin: 2px 0 0;
+}
+
+.idreg-phone .idreg-number .idreg-sub {
+	margin: 0;
+	text-align: center;
+}
+
+.idreg-digits {
+	display: flex;
+	gap: 12px;
+}
+
+.idreg-digits span {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 58px;
+	height: 66px;
+	border-radius: 16px;
+	background: var(--color-primary-element, #0082c9);
+	color: var(--color-primary-element-text, #fff);
+	font-size: 34px;
+	font-weight: 700;
+	font-variant-numeric: tabular-nums;
+}
+
+.idreg-progress {
+	width: 100%;
+	max-width: 230px;
+	height: 5px;
+	margin: 12px 0 0;
+	border-radius: 3px;
+	background: var(--color-border-dark, #d0d0d0);
+	overflow: hidden;
+}
+
+.idreg-progress span {
+	display: block;
+	height: 100%;
+	width: 100%;
+	border-radius: 3px;
+	background: var(--color-primary-element, #0082c9);
+	transition: width 1s linear;
+}
+
+.idreg-phone .idreg-countdown {
+	margin: 2px 0 0;
+	min-height: 1.2em;
+	font-size: 0.82rem;
+	text-align: center;
+}
+
+.idreg-phone .idreg-button {
+	margin: 4px 0 0;
+	width: auto;
 }
 
 .idreg-links {
-	margin-top: 16px;
+	margin: 6px 0 0;
+	text-align: center;
+}
+
+.idreg-links a {
+	color: var(--color-primary-element, #0082c9);
+	font-size: 0.9rem;
 }

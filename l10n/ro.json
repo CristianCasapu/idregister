@@ -395,7 +395,13 @@
         "Let a paired phone sign an account in": "Permite unui telefon împerecheat să autentifice contul",
         "The account pairs the registration app with itself in its personal settings, with its password and a code on the screen. Afterwards the sign-in page offers \"Sign in with your phone\": it shows a code and two digits, the phone reads the code, shows who is asking and from where, and signs the answer with a key that never leaves it. A second factor, if the account has one, is still asked afterwards.": "Contul își împerechează aplicația de înregistrare din setările personale, cu parola lui și un cod pe ecran. După aceea, pagina de autentificare oferă „Autentificare cu telefonul”: arată un cod și două cifre, telefonul citește codul, arată cine cere autentificarea și de unde, apoi semnează răspunsul cu o cheie care nu îl părăsește niciodată. Al doilea factor, dacă acel cont are unul, se cere tot după aceea.",
         "Address the phone talks to": "Adresa cu care vorbește telefonul",
-        "Too many tries. Please wait a few minutes and try again.": "Prea multe încercări. Așteaptă câteva minute și încearcă din nou."
+        "Too many tries. Please wait a few minutes and try again.": "Prea multe încercări. Așteaptă câteva minute și încearcă din nou.",
+        "A phone was paired with your account": "Un telefon a fost împerecheat cu contul tău",
+        "\"%s\" can sign you in from now on. If this was not you, remove it in your personal settings and change your password.": "„%s” te poate autentifica de acum. Dacă nu ai fost tu, elimină-l din setările personale și schimbă-ți parola.",
+        "You were signed in by your phone": "Ai fost autentificat de pe telefon",
+        "\"%1$s\" approved a sign-in from %2$s (%3$s). If this was not you, remove the phone in your personal settings and change your password.": "„%1$s” a aprobat o autentificare din %2$s (%3$s). Dacă nu ai fost tu, elimină telefonul din setările personale și schimbă-ți parola.",
+        "A Google account was linked to your account": "Un cont Google a fost legat de contul tău",
+        "%s can sign you in from now on. If this was not you, unlink it in your personal settings and change your password.": "%s te poate autentifica de acum. Dacă nu ai fost tu, dezleagă-l din setările personale și schimbă-ți parola."
     },
     "pluralForm": "nplurals=3; plural=(n==1?0:(((n%100>19)||((n%100==0)&&(n!=0)))?2:1));"
 }

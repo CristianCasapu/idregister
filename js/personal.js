@@ -49,10 +49,10 @@
 		var noteOk = message ? true : !!(google.message && google.message.ok);
 		var body;
 		if (google.linked) {
-			body = '<div class="idreg-admin-row"><strong>' + esc(t('Linked to')) + ':</strong> ' + esc(google.email)
-				+ ' <span class="pill ok">' + esc(t('active')) + '</span></div>'
-				+ '<p class="muted">' + esc(t('You can sign in with this Google account, without typing a password.')) + '</p>'
-				+ '<div class="idreg-admin-row"><button type="button" id="idreg-google-unlink">' + esc(t('Unlink the Google account')) + '</button></div>';
+			body = '<div class="idreg-linked"><span class="idreg-mark" aria-hidden="true"></span>'
+				+ '<span class="idreg-linked-text"><strong>' + esc(google.email) + '</strong>'
+				+ '<span class="muted">' + esc(t('You can sign in with this Google account, without typing a password.')) + '</span></span>'
+				+ '<button type="button" id="idreg-google-unlink">' + esc(t('Unlink the Google account')) + '</button></div>';
 		} else if (!google.accountEmail) {
 			body = '<p class="muted">' + esc(t('Confirm your e-mail address above first; then you can link the Google account that uses it.')) + '</p>';
 		} else {
@@ -107,19 +107,23 @@
 		var box = document.getElementById('idreg-phone');
 		if (!box || !phone || !phone.enabled) { return; }
 		var list = phone.devices.length
-			? '<ul class="locked-list">' + phone.devices.map(function (d) {
-				return '<li><strong>' + esc(d.name) + '</strong> <span class="muted">'
-					+ esc(t('paired {when}, last used {used}', { when: when(d.created), used: when(d.lastUsed) })) + '</span> '
-					+ '<button type="button" class="idreg-forget" data-id="' + esc(d.deviceId) + '">' + esc(t('Remove')) + '</button></li>';
-			}).join('') + '</ul>'
+			? phone.devices.map(function (d) {
+				return '<div class="idreg-linked"><span class="idreg-mark idreg-mark-phone" aria-hidden="true"></span>'
+					+ '<span class="idreg-linked-text"><strong>' + esc(d.name) + '</strong>'
+					+ '<span class="muted">' + esc(t('paired {when}, last used {used}', { when: when(d.created), used: when(d.lastUsed) })) + '</span></span>'
+					+ '<button type="button" class="idreg-forget" data-id="' + esc(d.deviceId) + '">' + esc(t('Remove')) + '</button></div>';
+			}).join('')
 			: '<p class="muted">' + esc(t('No phone is paired with your account yet.')) + '</p>';
 
 		var body;
 		if (pairing) {
-			body = '<p class="muted">' + esc(t('In the app, press "Pair this phone" and point it at this code.')) + '</p>'
-				+ '<canvas id="idreg-pair-qr" width="1" height="1"></canvas>'
-				+ '<div class="idreg-admin-row"><span class="muted" id="idreg-pair-state">' + esc(t('Waiting for the phone …')) + '</span> '
-				+ '<button type="button" id="idreg-pair-cancel">' + esc(t('Cancel')) + '</button></div>';
+			body = '<div class="idreg-pair">'
+				+ '<p class="muted">' + esc(t('In the app, press "Pair this phone" and point it at this code.')) + '</p>'
+				+ '<div class="idreg-qr-box"><canvas id="idreg-pair-qr" width="1" height="1"></canvas></div>'
+				+ '<div class="idreg-pair-foot"><span class="idreg-dot" aria-hidden="true"></span>'
+				+ '<span class="muted" id="idreg-pair-state">' + esc(t('Waiting for the phone …')) + '</span> '
+				+ '<button type="button" id="idreg-pair-cancel">' + esc(t('Cancel')) + '</button></div>'
+				+ '</div>';
 		} else {
 			body = '<div class="idreg-admin-row"><label for="idreg-pair-pass">' + esc(t('Your password')) + '</label> '
 				+ '<input type="password" id="idreg-pair-pass" autocomplete="current-password"> '

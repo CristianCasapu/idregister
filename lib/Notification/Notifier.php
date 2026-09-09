@@ -27,17 +27,38 @@ final class Notifier implements INotifier
 
     public function prepare(INotification $notification, string $languageCode): INotification
     {
-        if (Application::APP_ID !== $notification->getApp() || 'approval_needed' !== $notification->getSubject()) {
+        if (Application::APP_ID !== $notification->getApp()) {
             throw new UnknownNotificationException();
         }
         $l = $this->l10nFactory->get(Application::APP_ID, $languageCode);
         $params = $notification->getSubjectParameters();
+        $personal = $this->urlGenerator->linkToRouteAbsolute('settings.PersonalSettings.index', ['section' => 'personal-info']);
 
-        $notification->setParsedSubject($l->t('A registration is waiting for approval'))
-            ->setParsedMessage($l->t('%1$s (%2$s) confirmed their e-mail address and is waiting to be let in.', [(string) ($params['name'] ?? ''), (string) ($params['email'] ?? '')]))
-            ->setLink($this->urlGenerator->linkToRouteAbsolute('settings.AdminSettings.index', ['section' => 'idregister']))
-            ->setIcon($this->urlGenerator->getAbsoluteURL($this->urlGenerator->imagePath('core', 'actions/user.svg')))
-        ;
+        match ($notification->getSubject()) {
+            // to the administrators
+            'approval_needed' => $notification
+                ->setParsedSubject($l->t('A registration is waiting for approval'))
+                ->setParsedMessage($l->t('%1$s (%2$s) confirmed their e-mail address and is waiting to be let in.', [(string) ($params['name'] ?? ''), (string) ($params['email'] ?? '')]))
+                ->setLink($this->urlGenerator->linkToRouteAbsolute('settings.AdminSettings.index', ['section' => 'idregister']))
+                ->setIcon($this->urlGenerator->getAbsoluteURL($this->urlGenerator->imagePath('core', 'actions/user.svg'))),
+            // to the account itself: everything that changes how it can be signed in to
+            'phone_paired' => $notification
+                ->setParsedSubject($l->t('A phone was paired with your account'))
+                ->setParsedMessage($l->t('"%s" can sign you in from now on. If this was not you, remove it in your personal settings and change your password.', [(string) ($params['name'] ?? '')]))
+                ->setLink($personal)
+                ->setIcon($this->urlGenerator->getAbsoluteURL($this->urlGenerator->imagePath('core', 'clients/phone.svg'))),
+            'phone_signin' => $notification
+                ->setParsedSubject($l->t('You were signed in by your phone'))
+                ->setParsedMessage($l->t('"%1$s" approved a sign-in from %2$s (%3$s). If this was not you, remove the phone in your personal settings and change your password.', [(string) ($params['name'] ?? ''), (string) ($params['browser'] ?? ''), (string) ($params['ip'] ?? '')]))
+                ->setLink($personal)
+                ->setIcon($this->urlGenerator->getAbsoluteURL($this->urlGenerator->imagePath('core', 'clients/phone.svg'))),
+            'google_linked' => $notification
+                ->setParsedSubject($l->t('A Google account was linked to your account'))
+                ->setParsedMessage($l->t('%s can sign you in from now on. If this was not you, unlink it in your personal settings and change your password.', [(string) ($params['email'] ?? '')]))
+                ->setLink($personal)
+                ->setIcon($this->urlGenerator->getAbsoluteURL($this->urlGenerator->imagePath('core', 'actions/password.svg'))),
+            default => throw new UnknownNotificationException(),
+        };
 
         return $notification;
     }

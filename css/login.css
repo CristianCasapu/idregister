@@ -1,82 +1,79 @@
-/* The registration link under the sign-in form: a readable secondary button on any theme */
-.idregister-login-link {
-	display: block;
-	box-sizing: border-box;
-	width: 100%;
-	text-align: center;
-	margin-top: 10px;
-	padding: 12px 16px;
-	border: 2px solid var(--color-primary-element-text, #fff);
+/*
+ * The three ways in that this app adds under the sign-in form: registration with an identity card,
+ * a linked Google account, and a paired phone.
+ *
+ * Nextcloud renders them as its own secondary buttons (NcButton), whose styles are injected at
+ * run time and therefore beat a plain stylesheet — which is why every selector here carries its
+ * class twice. The colours of two of them are left to Nextcloud on purpose: a pair the theme
+ * itself picks is readable on every theme, where the first cut of the phone button (white on
+ * transparent) all but vanished on a light sign-in card. What is added is an icon, a label that
+ * wraps instead of being cut off mid-word, and a little more room to press.
+ */
+.idregister-login-link.idregister-login-link,
+.idregister-google-link.idregister-google-link,
+.idregister-phone-link.idregister-phone-link {
+	min-height: 48px !important;
+	height: auto !important;
+	margin-top: 8px;
+	padding: 10px 16px !important;
 	border-radius: var(--border-radius-element, 24px);
-	background: var(--color-primary-element-text, #fff);
-	color: var(--color-primary-element, #0082c9) !important;
 	font-weight: 600;
-	text-decoration: none !important;
 }
 
-.idregister-login-link:hover,
-.idregister-login-link:focus-visible {
-	background: transparent;
-	color: var(--color-primary-element-text, #fff) !important;
-}
-
-/* on a plain background (no theming colours behind the form) keep normal text colours */
-@media (prefers-color-scheme: dark) {
-	.idregister-login-link {
-		border-color: var(--color-primary-element-text, #fff);
-	}
-}
-
-/* "Continue with Google": Google's own colours, so it is recognised at a glance */
-.idregister-google-link {
-	display: flex;
-	align-items: center;
-	justify-content: center;
+.idregister-login-link.idregister-login-link .button-vue__wrapper,
+.idregister-google-link.idregister-google-link .button-vue__wrapper,
+.idregister-phone-link.idregister-phone-link .button-vue__wrapper {
 	gap: 12px;
-	box-sizing: border-box;
-	width: 100%;
-	margin-top: 10px;
-	padding: 12px 16px;
-	border: 1px solid #dadce0;
-	border-radius: var(--border-radius-element, 24px);
-	background: #fff;
-	color: #3c4043 !important;
-	font-weight: 600;
-	text-decoration: none !important;
 }
 
-.idregister-google-link::before {
+/* whole sentences, not one clipped line */
+.idregister-login-link.idregister-login-link .button-vue__text,
+.idregister-google-link.idregister-google-link .button-vue__text,
+.idregister-phone-link.idregister-phone-link .button-vue__text {
+	white-space: normal;
+	overflow: visible;
+	text-overflow: clip;
+	line-height: 1.25;
+	margin: 0;
+}
+
+/* the icons follow the colour of the label, so they hold on every theme */
+.idregister-login-link.idregister-login-link .button-vue__wrapper::before,
+.idregister-phone-link.idregister-phone-link .button-vue__wrapper::before {
 	content: '';
 	width: 20px;
 	height: 20px;
 	flex: 0 0 20px;
-	background: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2048%2048%22%3E%3Cpath%20fill%3D%22%23EA4335%22%20d%3D%22M24%209.5c3.54%200%206.71%201.22%209.21%203.6l6.85-6.85C35.9%202.38%2030.47%200%2024%200%2014.62%200%206.51%205.38%202.56%2013.22l7.98%206.19C12.43%2013.72%2017.74%209.5%2024%209.5z%22%2F%3E%3Cpath%20fill%3D%22%234285F4%22%20d%3D%22M46.98%2024.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58%202.96-2.26%205.48-4.78%207.18l7.73%206c4.51-4.18%207.09-10.36%207.09-17.65z%22%2F%3E%3Cpath%20fill%3D%22%23FBBC05%22%20d%3D%22M10.53%2028.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92%2016.46%200%2020.12%200%2024c0%203.88.92%207.54%202.56%2010.78l7.97-6.19z%22%2F%3E%3Cpath%20fill%3D%22%2334A853%22%20d%3D%22M24%2048c6.48%200%2011.93-2.13%2015.89-5.81l-7.73-6c-2.15%201.45-4.92%202.3-8.16%202.3-6.26%200-11.57-4.22-13.47-9.91l-7.98%206.19C6.51%2042.62%2014.62%2048%2024%2048z%22%2F%3E%3C%2Fsvg%3E") center/contain no-repeat;
+	background-color: currentColor;
+	-webkit-mask: var(--idregister-icon) center / contain no-repeat;
+	mask: var(--idregister-icon) center / contain no-repeat;
 }
 
-.idregister-google-link:hover,
-.idregister-google-link:focus-visible {
-	background: #f7f8f8;
-	border-color: #c6c9cc;
+.idregister-login-link.idregister-login-link {
+	--idregister-icon: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%3E%3Cpath%20d%3D%22M20%204H4c-1.11%200-1.99.89-1.99%202L2%2018c0%201.11.89%202%202%202h16c1.11%200%202-.89%202-2V6c0-1.11-.89-2-2-2zm0%2014H4v-6h16v6zm0-10H4V6h16v2z%22%2F%3E%3Ccircle%20cx%3D%227.5%22%20cy%3D%2215%22%20r%3D%221.6%22%2F%3E%3C%2Fsvg%3E");
 }
 
-/* "Sign in with your phone": the same shape as the registration link, one notch quieter */
-.idregister-phone-link {
-	display: block;
-	box-sizing: border-box;
-	width: 100%;
-	text-align: center;
-	margin-top: 10px;
-	padding: 12px 16px;
-	border: 2px solid var(--color-primary-element-text, #fff);
-	border-radius: var(--border-radius-element, 24px);
-	background: transparent;
-	color: var(--color-primary-element-text, #fff) !important;
-	font-weight: 600;
-	text-decoration: none !important;
+.idregister-phone-link.idregister-phone-link {
+	--idregister-icon: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%3E%3Cpath%20d%3D%22M17%201.01%207%201c-1.1%200-2%20.9-2%202v18c0%201.1.9%202%202%202h10c1.1%200%202-.9%202-2V3c0-1.1-.9-1.99-2-1.99zM17%2019H7V5h10v14z%22%2F%3E%3Ccircle%20cx%3D%2212%22%20cy%3D%2217%22%20r%3D%221.1%22%2F%3E%3C%2Fsvg%3E");
 }
 
-.idregister-phone-link:hover,
-.idregister-phone-link:focus-visible {
-	background: var(--color-primary-element-text, #fff);
-	color: var(--color-primary-element, #0082c9) !important;
+/* Google asks for its own colours and its own mark, and they read on any theme */
+.idregister-google-link.idregister-google-link {
+	background-color: #fff !important;
+	color: #3c4043 !important;
+	box-shadow: inset 0 0 0 1px #dadce0;
+}
+
+.idregister-google-link.idregister-google-link:hover,
+.idregister-google-link.idregister-google-link:focus-visible {
+	background-color: #f7f8f8 !important;
+	box-shadow: inset 0 0 0 1px #c6c9cc;
+}
+
+.idregister-google-link.idregister-google-link .button-vue__wrapper::before {
+	content: '';
+	width: 20px;
+	height: 20px;
+	flex: 0 0 20px;
+	background: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2048%2048%22%3E%3Cpath%20fill%3D%22%23EA4335%22%20d%3D%22M24%209.5c3.54%200%206.71%201.22%209.21%203.6l6.85-6.85C35.9%202.38%2030.47%200%2024%200%2014.62%200%206.51%205.38%202.56%2013.22l7.98%206.19C12.43%2013.72%2017.74%209.5%2024%209.5z%22%2F%3E%3Cpath%20fill%3D%22%234285F4%22%20d%3D%22M46.98%2024.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58%202.96-2.26%205.48-4.78%207.18l7.73%206c4.51-4.18%207.09-10.36%207.09-17.65z%22%2F%3E%3Cpath%20fill%3D%22%23FBBC05%22%20d%3D%22M10.53%2028.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92%2016.46%200%2020.12%200%2024c0%203.88.92%207.54%202.56%2010.78l7.97-6.19z%22%2F%3E%3Cpath%20fill%3D%22%2334A853%22%20d%3D%22M24%2048c6.48%200%2011.93-2.13%2015.89-5.81l-7.73-6c-2.15%201.45-4.92%202.3-8.16%202.3-6.26%200-11.57-4.22-13.47-9.91l-7.98%206.19C6.51%2042.62%2014.62%2048%2024%2048z%22%2F%3E%3C%2Fsvg%3E") center / contain no-repeat;
 }

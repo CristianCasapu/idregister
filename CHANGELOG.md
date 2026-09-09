@@ -4,6 +4,22 @@ All notable changes to this project are documented in this file. The format foll
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses
 [semantic versioning](https://semver.org/).
 
+## [1.16.0] – 2026-09-10
+
+### Added
+- A notice to the account whenever the way it can be signed in to changes: a phone was paired, a
+  phone approved a sign-in (with the browser and the address it came from), a Google account was
+  linked. Each one says what to do if it was not you.
+
+### Changed
+- The three buttons this app adds under the sign-in form share one shape and carry an icon, and
+  every colour is now a pair the theme itself guarantees to be readable: "Sign in with your phone"
+  was white on transparent and all but vanished on a light sign-in card. Labels wrap instead of
+  being cut off mid-word.
+- The page that waits for the phone gained a proper look: the code sits in a white frame (which is
+  what a camera reads best, whatever the theme), the two digits are shown as chips, and the time
+  left drains as a bar.
+
 ## [1.15.0] – 2026-09-10
 
 ### Added

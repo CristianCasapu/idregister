@@ -45,16 +45,19 @@
 
 	function expired(text) {
 		stop();
-		$('idreg-phone-qr').hidden = true;
+		$('idreg-phone-frame').hidden = true;
 		$('idreg-phone-number').hidden = true;
+		$('idreg-phone-progress').hidden = true;
 		$('idreg-phone-countdown').textContent = '';
 		$('idreg-phone-again').hidden = false;
 		message(text, 'error');
 	}
 
 	function countdown() {
+		var total = Math.max(1, request.expires - request.started);
 		var left = Math.max(0, Math.round((request.expires * 1000 - Date.now()) / 1000));
 		$('idreg-phone-countdown').textContent = left > 0 ? t('This code is good for {seconds} seconds.', { seconds: left }) : '';
+		$('idreg-phone-progress').firstChild.style.width = Math.round(100 * left / total) + '%';
 		if (0 === left) { expired(t('This code has expired.')); }
 	}
 
@@ -82,12 +85,19 @@
 		post('/api/device/login', { redirect: redirect }).then(function (data) {
 			if (!data || !data.ok) { expired((data && data.message) || t('Something went wrong. Please try again.')); return; }
 			request = data;
-			$('idreg-phone-qr').hidden = false;
+			request.started = Math.round(Date.now() / 1000);
+			$('idreg-phone-frame').hidden = false;
 			// the same text the code holds, for a phone that cannot read the picture
 			$('idreg-phone-qr').dataset.payload = data.payload;
-			window.idregDrawQr($('idreg-phone-qr'), data.payload, 280);
-			$('idreg-phone-digits').textContent = data.number;
+			window.idregDrawQr($('idreg-phone-qr'), data.payload, 260);
+			$('idreg-phone-digits').innerHTML = '';
+			String(data.number).split('').forEach(function (digit) {
+				var box = document.createElement('span');
+				box.textContent = digit;
+				$('idreg-phone-digits').appendChild(box);
+			});
 			$('idreg-phone-number').hidden = false;
+			$('idreg-phone-progress').hidden = false;
 			countdown();
 			ticker = window.setInterval(countdown, 1000);
 			timer = window.setTimeout(poll, 2000);

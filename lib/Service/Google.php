@@ -12,6 +12,7 @@ use OCP\IL10N;
 use OCP\ISession;
 use OCP\IURLGenerator;
 use OCP\IUser;
+use OCP\Notification\IManager as INotificationManager;
 use OCP\Security\ISecureRandom;
 use Psr\Log\LoggerInterface;
 
@@ -53,6 +54,7 @@ final class Google
         private IURLGenerator $urlGenerator,
         private ISecureRandom $random,
         private Settings $settings,
+        private INotificationManager $notifications,
         private IL10N $l,
         private LoggerInterface $logger,
     ) {}
@@ -216,6 +218,18 @@ final class Google
             'linked_at' => $insert->createNamedParameter(time(), \OCP\DB\QueryBuilder\IQueryBuilder::PARAM_INT),
         ])->executeStatement();
         $this->logger->info('idregister: '.$user->getUID().' linked a Google account');
+        try {
+            $notification = $this->notifications->createNotification();
+            $notification->setApp(Application::APP_ID)
+                ->setUser($user->getUID())
+                ->setObject('google', $sub)
+                ->setDateTime(new \DateTime())
+                ->setSubject('google_linked', ['email' => $email])
+            ;
+            $this->notifications->notify($notification);
+        } catch (\Throwable $e) {
+            $this->logger->warning('idregister: the notice about the linked Google account could not be sent', ['exception' => $e]);
+        }
     }
 
     public function unlink(string $uid): void
