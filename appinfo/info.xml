@@ -21,11 +21,16 @@ The picture of the document is never stored: it is read in memory and discarded.
 (CNP) is not stored either - only a salted hash of it, so the same card cannot be used twice.
 A computer cannot register: it shows a QR code and signs in after the phone is done.
 
+Once an account exists, its owner can tie a Google account to it in their personal settings and
+sign in with "Continue with Google" afterwards, without a password. Google never creates an account
+here, and only a Google account whose Google-verified address is the address already confirmed here
+can be tied to one.
+
 An Android client with the same flow, plus NFC reading of the chip of the electronic identity card,
 is at github.com/CristianCasapu/idregister-android. The document parser is a PHP port of the one in
 the NecMat app (github.com/CristianCasapu/necmat).
     ]]></description>
-    <version>1.13.0</version>
+    <version>1.14.0</version>
     <licence>agpl</licence>
     <author mail="casapucristian@gmail.com">Cristian Casapu</author>
     <namespace>IdRegister</namespace>

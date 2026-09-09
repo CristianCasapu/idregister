@@ -96,6 +96,25 @@ person. Four failed selfies send the visitor back to the start.
 
 ---
 
+## Signing in with Google
+
+Registration always goes through the identity card. Afterwards, whoever owns the account can tie a
+Google account to it in **Personal settings › Personal info › Sign in with Google**, and from then
+on the "Continue with Google" button under the sign-in form signs them in without a password.
+
+- The link is keyed on Google's `sub`, the identifier of the Google account that never changes.
+- It is only accepted when Google reports the address as verified **and** that address is the one
+  already confirmed here. Any other Google account is refused.
+- An unknown Google account is never turned into an account: it is sent to the registration page.
+- An account with a second factor still has to pass it.
+
+To set it up, in the [Google Cloud console](https://console.cloud.google.com/apis/credentials)
+create an OAuth client of type *Web application*, add the redirect URI shown in the administration
+page (`https://<your server>/index.php/apps/idregister/google/callback`) to its allowed redirect
+URIs, and paste the client ID and the client secret into **Administration settings › Sign up with
+ID › Sign in with Google**. The consent screen only needs the `openid`, `email` and `profile`
+scopes, which do not need Google's verification.
+
 ## Requirements
 
 - Nextcloud 30 – 34, PHP ≥ 8.1 with `imagick` (or GD as a fallback).
@@ -135,6 +154,8 @@ Everything is in the admin section; the ones that matter most:
 | `oneAccountPerCard` | on | one card, one account (hashed CNP) |
 | `chipEnabled` | off | `/api/chip`, the NFC step of the Android app |
 | `androidAppUrl` | releases page | suggested when the web scan struggles |
+| `googleEnabled` | off | "Continue with Google" for accounts that linked one |
+| `googleClientId` | empty | the OAuth client of the Google Cloud project |
 
 ## Commands
 
@@ -166,6 +187,11 @@ cartea de identitate la cameră: serverul citește actul (RapidOCR), verifică d
 copie sau un ecran), compară un selfie cu poza de pe act (InsightFace) și creează contul pe loc.
 Poza actului nu se salvează niciodată, CNP-ul se păstrează doar ca hash, iar numele, e-mailul și
 telefonul nu mai pot fi schimbate după confirmare. Interfața e doar în română și engleză.
+
+După ce contul există, posesorul își poate lega un cont Google din setările personale și se poate
+autentifica apoi cu „Continuă cu Google”, fără parolă. Google nu creează niciodată un cont aici, iar
+legarea merge doar cu acel cont Google a cărui adresă verificată de Google este chiar adresa
+confirmată aici.
 
 Aplicația Android care face același lucru cu camera telefonului (și citește cipul cărții electronice
 prin NFC) este la [CristianCasapu/idregister-android](https://github.com/CristianCasapu/idregister-android).

@@ -11,7 +11,7 @@ use OCP\IDBConnection;
 use OCP\User\Events\UserDeletedEvent;
 
 /**
- * When an account goes, its registration record and its locked values go with it.
+ * When an account goes, its registration record, its locked values and its Google link go with it.
  *
  * @template-implements IEventListener<UserDeletedEvent>
  */
@@ -31,10 +31,12 @@ final class UserDeletedListener implements IEventListener
         } catch (\Throwable $e) {
             // no registration for this account
         }
-        $query = $this->db->getQueryBuilder();
-        $query->delete('idregister_locked')
-            ->where($query->expr()->eq('uid', $query->createNamedParameter($uid)))
-            ->executeStatement()
-        ;
+        foreach (['idregister_locked', 'idregister_google'] as $table) {
+            $query = $this->db->getQueryBuilder();
+            $query->delete($table)
+                ->where($query->expr()->eq('uid', $query->createNamedParameter($uid)))
+                ->executeStatement()
+            ;
+        }
     }
 }

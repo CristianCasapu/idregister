@@ -4,6 +4,24 @@ All notable changes to this project are documented in this file. The format foll
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses
 [semantic versioning](https://semver.org/).
 
+## [1.14.0] – 2026-09-10
+
+### Added
+- **Sign in with Google.** An account that already exists here can be tied to a Google account in
+  Personal settings › Personal info, and from then on "Continue with Google" under the sign-in form
+  signs it in without a password. The link is keyed on Google's `sub`, so it survives a change of
+  address at Google; it is only accepted when Google says it verified the address and that address
+  is exactly the one already confirmed here, so a Google account can never be attached to somebody
+  else's account. Registration is untouched: an unknown Google account is sent to the identity card,
+  never turned into an account.
+- Administration settings for it: the switch, the OAuth client ID and secret (written but never read
+  back to a browser), and the redirect URI to paste into the Google console.
+
+### Security
+- The flow uses `state`, `nonce` and PKCE; the identity token is fetched by the server itself from
+  Google's token endpoint over TLS and its issuer, audience, expiry and nonce are checked. An account
+  with a second factor still has to pass it — the sign-in hands over to the challenge page.
+
 ## [1.13.0] – 2026-09-10
 
 ### Added

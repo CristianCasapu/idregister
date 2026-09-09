@@ -8,6 +8,7 @@ use OCA\IdRegister\AppInfo\Application;
 use OCA\IdRegister\BackgroundJobs\InstallJob;
 use OCA\IdRegister\Db\PendingRegistrationMapper;
 use OCA\IdRegister\Service\FaceMatch;
+use OCA\IdRegister\Service\Google;
 use OCA\IdRegister\Service\Ocr;
 use OCA\IdRegister\Service\PythonEnv;
 use OCA\IdRegister\Service\Registration;
@@ -32,6 +33,7 @@ class AdminController extends Controller
         private Ocr $ocr,
         private FaceMatch $faceMatch,
         private PythonEnv $env,
+        private Google $google,
         private IJobList $jobs,
     ) {
         parent::__construct(Application::APP_ID, $request);
@@ -78,14 +80,33 @@ class AdminController extends Controller
     {
         return new JSONResponse([
             'config' => $this->settings->all(),
+            'google' => $this->googleStatus(),
             'ocr' => $this->ocr->engineStatus(),
             'faces' => $this->faceMatch->status(),
         ]);
     }
 
-    public function setConfig(array $config = []): JSONResponse
+    /**
+     * The client secret comes in here and is never sent back: the page only learns whether one
+     * is set.
+     */
+    public function setConfig(array $config = [], ?string $googleClientSecret = null): JSONResponse
     {
-        return new JSONResponse(['config' => $this->settings->set($config)]);
+        if (null !== $googleClientSecret) {
+            $this->google->setClientSecret($googleClientSecret);
+        }
+
+        return new JSONResponse(['config' => $this->settings->set($config), 'google' => $this->googleStatus()]);
+    }
+
+    /** @return array{secretSet:bool, ready:bool, redirectUri:string} */
+    private function googleStatus(): array
+    {
+        return [
+            'secretSet' => $this->google->secretSet(),
+            'ready' => $this->google->configured(),
+            'redirectUri' => $this->google->redirectUri(),
+        ];
     }
 
     public function list(?string $status = null): JSONResponse

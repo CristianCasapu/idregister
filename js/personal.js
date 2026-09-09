@@ -14,7 +14,7 @@
 	};
 	var locked = initial('locked');
 	var profile = initial('profile');
-	if (!locked) { return; }
+	var google = initial('google');
 
 	var esc = function (s) {
 		return String(s || '').replace(/[&<>"']/g, function (c) {
@@ -32,9 +32,62 @@
 		}).then(function (r) { return r.json(); });
 	};
 
+	/* "Continue with Google": tie a Google account to this account, or untie it again */
+	function renderGoogle(message) {
+		var box = document.getElementById('idreg-google');
+		if (!box || !google || !google.enabled) { return; }
+		var note = message || (google.message ? google.message.message : '');
+		var noteOk = message ? true : !!(google.message && google.message.ok);
+		var body;
+		if (google.linked) {
+			body = '<div class="idreg-admin-row"><strong>' + esc(t('Linked to')) + ':</strong> ' + esc(google.email)
+				+ ' <span class="pill ok">' + esc(t('active')) + '</span></div>'
+				+ '<p class="muted">' + esc(t('You can sign in with this Google account, without typing a password.')) + '</p>'
+				+ '<div class="idreg-admin-row"><button type="button" id="idreg-google-unlink">' + esc(t('Unlink the Google account')) + '</button></div>';
+		} else if (!google.accountEmail) {
+			body = '<p class="muted">' + esc(t('Confirm your e-mail address above first; then you can link the Google account that uses it.')) + '</p>';
+		} else {
+			body = '<p class="muted">' + esc(t('Sign in without a password, with the Google account that uses {email}. Any other Google account is refused.', { email: google.accountEmail })) + '</p>'
+				+ '<div class="idreg-admin-row"><button type="button" class="primary" id="idreg-google-link">' + esc(t('Link my Google account')) + '</button></div>';
+		}
+		box.innerHTML = '<div class="section"><h2>' + esc(t('Sign in with Google')) + '</h2>' + body
+			+ (note ? '<p class="' + (noteOk ? 'ok' : 'error') + '">' + esc(note) + '</p>' : '') + '</div>';
+
+		var link = document.getElementById('idreg-google-link');
+		if (link) {
+			link.addEventListener('click', function () {
+				link.disabled = true;
+				post('/api/google/link', {}).then(function (data) {
+					if (data && data.ok && data.url) { window.location = data.url; return; }
+					link.disabled = false;
+					renderGoogle((data && data.message) || t('Something went wrong. Please try again.'));
+				}).catch(function () {
+					link.disabled = false;
+					renderGoogle(t('Something went wrong. Please try again.'));
+				});
+			});
+		}
+		var unlink = document.getElementById('idreg-google-unlink');
+		if (unlink) {
+			unlink.addEventListener('click', function () {
+				if (!window.confirm(t('Sign in with this Google account will stop working. Unlink it?'))) { return; }
+				post('/api/google/unlink', {}).then(function (data) {
+					google.linked = !(data && data.ok);
+					google.message = null;
+					renderGoogle(google.linked ? t('Something went wrong. Please try again.') : t('The Google account is unlinked.'));
+				});
+			});
+		}
+	}
+
+	root.innerHTML = '<div id="idreg-personal-main"></div><div id="idreg-google"></div>';
+	var main = document.getElementById('idreg-personal-main');
+	renderGoogle('');
+	if (!locked) { return; }
+
 	/* an account made the classic way: everything is fixed */
 	if (!profile || !profile.express && profile.emailLocked) {
-		root.innerHTML = '<div class="section">'
+		main.innerHTML = '<div class="section">'
 			+ '<h2>' + esc(t('Details from your identity card')) + '</h2>'
 			+ '<p class="muted">' + esc(t('You registered with your identity card, so these details are fixed. Ask an administrator if something is wrong.')) + '</p>'
 			+ '<ul class="locked-list">'
@@ -66,7 +119,7 @@
 				+ '<input type="tel" id="idreg-p-phone" placeholder="07xx xxx xxx" autocomplete="tel" value="' + esc(p.phone) + '"> '
 				+ '<button type="button" id="idreg-p-phone-save">' + esc(t('Save')) + '</button></div>'
 				+ '<p class="muted">' + esc(t('Once saved, the phone number is fixed.')) + '</p>';
-		root.innerHTML = '<div class="section">'
+		main.innerHTML = '<div class="section">'
 			+ '<h2>' + esc(t('Complete your profile')) + '</h2>'
 			+ '<p class="muted">' + esc(t('Your account was created from your identity card. The name is fixed; add the rest here.')) + '</p>'
 			+ '<div class="idreg-admin-row"><strong>' + esc(t('Full name')) + ':</strong> ' + esc(p.name) + ' <span class="muted">' + esc(t('(from the identity card)')) + '</span></div>'

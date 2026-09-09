@@ -26,6 +26,11 @@ return [
         ['name' => 'profile#emailConfirm', 'url' => '/api/profile/email/confirm', 'verb' => 'POST'],
         ['name' => 'profile#phone', 'url' => '/api/profile/phone', 'verb' => 'POST'],
         ['name' => 'profile#nickname', 'url' => '/api/profile/nickname', 'verb' => 'POST'],
+        // signing in with a linked Google account
+        ['name' => 'google#login', 'url' => '/google/login', 'verb' => 'GET'],
+        ['name' => 'google#callback', 'url' => '/google/callback', 'verb' => 'GET'],
+        ['name' => 'google#start', 'url' => '/api/google/link', 'verb' => 'POST'],
+        ['name' => 'google#unlink', 'url' => '/api/google/unlink', 'verb' => 'POST'],
         // administration
         ['name' => 'admin#config', 'url' => '/api/admin/config', 'verb' => 'GET'],
         ['name' => 'admin#setConfig', 'url' => '/api/admin/config', 'verb' => 'PUT'],

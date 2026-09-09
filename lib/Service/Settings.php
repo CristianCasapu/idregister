@@ -70,6 +70,10 @@ final class Settings
         // only when the automatic detection picks the wrong Python
         'pythonBinary' => '',
         'insightfaceRoot' => '',
+        // "Continue with Google": an account here can be tied to a Google account and sign in with
+        // it afterwards. The client secret is not here — it is written sensitive and never read back.
+        'googleEnabled' => false,
+        'googleClientId' => '',
         // registration only from a phone or tablet; a desktop gets a QR code
         'mobileOnly' => true,
         // express: the account is created right after the document (and the selfie), with a random

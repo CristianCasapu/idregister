@@ -26,6 +26,7 @@
 	};
 
 	var config = initial('config', {});
+	var google = initial('google', { secretSet: false, ready: false, redirectUri: '' });
 	var ocr = initial('ocr', { ok: false, version: '', languages: [], missing: [] });
 	var faces = initial('faces', { available: false, python: '', root: '' });
 	var reader = initial('reader', { installed: false, canInstall: false, reason: '', install: { state: 'idle' } });
@@ -40,10 +41,39 @@
 		});
 	}
 
-	function save(patch) {
+	function save(patch, extra) {
 		Object.assign(config, patch);
-		call('PUT', '/api/admin/config', { config: patch }).then(function (data) {
+		call('PUT', '/api/admin/config', Object.assign({ config: patch }, extra || {})).then(function (data) {
 			if (data && data.config) { config = data.config; }
+			if (data && data.google) { google = data.google; renderGoogle(); }
+		});
+	}
+
+	/* The Google client secret goes up on its own and never comes back down. */
+	function saveSecret(secret) {
+		save({}, { googleClientSecret: secret });
+	}
+
+	function renderGoogle() {
+		var box = document.getElementById('idreg-google');
+		if (!box) { return; }
+		box.innerHTML = ''
+			+ '<div class="idreg-admin-row"><label><input type="checkbox" id="cfg-google"' + (config.googleEnabled ? ' checked' : '') + '> '
+			+ esc(t('Let accounts sign in with a linked Google account')) + '</label></div>'
+			+ '<p class="muted">' + esc(t('Nobody registers with Google: an account is created with an identity card as before, and its owner ties a Google account to it in their personal settings. Only a Google account whose verified address is the address already confirmed here can be tied to it.')) + '</p>'
+			+ '<div class="idreg-admin-row"><label>' + esc(t('Client ID')) + ' <input type="text" id="cfg-googleid" size="52" value="' + esc(config.googleClientId || '') + '" placeholder="…apps.googleusercontent.com"></label></div>'
+			+ '<div class="idreg-admin-row"><label>' + esc(t('Client secret')) + ' <input type="password" id="cfg-googlesecret" size="36" autocomplete="new-password" placeholder="' + esc(google.secretSet ? t('set — type a new one to replace it') : t('not set')) + '"></label> '
+			+ '<button type="button" id="cfg-googlesecret-save">' + esc(t('Save')) + '</button></div>'
+			+ '<div class="idreg-admin-row"><label>' + esc(t('Redirect URI (paste this into the Google console)')) + ' <input type="text" size="60" readonly value="' + esc(google.redirectUri) + '" onclick="this.select()"></label></div>'
+			+ '<p class="' + (google.ready ? 'ok' : 'warn') + '">' + esc(google.ready
+				? t('Ready: the client ID and the secret are set.')
+				: t('In the Google Cloud console, create an OAuth client of type "Web application", allow the redirect URI above, and paste the client ID and the secret here. The consent screen only needs the openid, email and profile scopes.')) + '</p>';
+		document.getElementById('cfg-google').addEventListener('change', function (e) { save({ googleEnabled: e.target.checked }); });
+		document.getElementById('cfg-googleid').addEventListener('change', function (e) { save({ googleClientId: e.target.value.trim() }); });
+		document.getElementById('cfg-googlesecret-save').addEventListener('click', function () {
+			var field = document.getElementById('cfg-googlesecret');
+			saveSecret(field.value.trim());
+			field.value = '';
 		});
 	}
 
@@ -164,12 +194,15 @@
 			+ '<div class="idreg-admin-row"><label>' + esc(t('Link to your privacy policy (shown on the form)')) + ' <input type="text" id="cfg-terms" placeholder="https://…" value="' + esc(config.termsUrl) + '"></label></div>'
 			+ '<div class="idreg-admin-row"><label><input type="checkbox" id="cfg-notify"' + (config.notifyAdmins ? ' checked' : '') + '> ' + esc(t('E-mail the administrators about every new account')) + '</label></div>'
 			+ '<div class="idreg-admin-row"><a href="' + esc(registerUrl) + '" target="_blank" rel="noopener">' + esc(t('Open the registration page')) + '</a></div>'
+			+ '<h3>' + esc(t('Sign in with Google')) + '</h3>'
+			+ '<div id="idreg-google"></div>'
 			+ '<h3>' + esc(t('Registrations')) + '</h3>'
 			+ (registrations.length
 				? '<table><thead><tr><th>' + esc(t('Person')) + '</th><th>' + esc(t('Contact')) + '</th><th>' + esc(t('Status')) + '</th><th>' + esc(t('Started')) + '</th><th></th></tr></thead><tbody>' + rows + '</tbody></table>'
 				: '<p class="muted">' + esc(t('Nobody has registered yet.')) + '</p>');
 
 		renderReader();
+		renderGoogle();
 		document.getElementById('cfg-open').addEventListener('change', function (e) { save({ registrationOpen: e.target.checked }); });
 		document.getElementById('cfg-approval').addEventListener('change', function (e) { save({ requireApproval: e.target.checked }); });
 		document.getElementById('cfg-onecard').addEventListener('change', function (e) { save({ oneAccountPerCard: e.target.checked }); });

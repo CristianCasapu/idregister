@@ -6,6 +6,7 @@ namespace OCA\IdRegister\Settings;
 
 use OCA\IdRegister\AppInfo\Application;
 use OCA\IdRegister\Service\FaceMatch;
+use OCA\IdRegister\Service\Google;
 use OCA\IdRegister\Service\Ocr;
 use OCA\IdRegister\Service\PythonEnv;
 use OCA\IdRegister\Service\Settings;
@@ -25,6 +26,7 @@ final class Admin implements ISettings
         private IURLGenerator $urlGenerator,
         private Ocr $ocr,
         private PythonEnv $env,
+        private Google $google,
     ) {}
 
     public function getForm(): TemplateResponse
@@ -34,6 +36,11 @@ final class Admin implements ISettings
             $groups[] = ['id' => $group->getGID(), 'name' => $group->getDisplayName()];
         }
         $this->initialState->provideInitialState('config', $this->settings->all());
+        $this->initialState->provideInitialState('google', [
+            'secretSet' => $this->google->secretSet(),
+            'ready' => $this->google->configured(),
+            'redirectUri' => $this->google->redirectUri(),
+        ]);
         $this->initialState->provideInitialState('ocr', $this->ocr->engineStatus());
         $this->initialState->provideInitialState('faces', $this->faceMatch->status());
         $this->initialState->provideInitialState('reader', $this->env->status());
